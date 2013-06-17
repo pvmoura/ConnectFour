@@ -24,6 +24,7 @@ class ConnectFour(object):
 
     def play(self):
         player = 'P'
+        counter = 1
         while True:
             self.board.drawBoard()
             msg = player + '\'s turn. '
@@ -39,7 +40,7 @@ class ConnectFour(object):
                             self.board.board[index][d-1] = player
                             if player == 'P':
                                 player = 'C'
-                            else:
+                            elif player == 'C':
                                 player = 'P'
                             break
                 else:
@@ -55,12 +56,7 @@ class Board(object):
     def __init__(self, columns = 7, column_size = 6):
         self.columns = columns
         self.column_size = column_size
-        self.board = []
-        for i in range(self.column_size):
-            r = []
-            for j in range(self.columns):
-                r.append('_')
-            self.board.append(r)
+        self.board = [['_' for j in range(self.columns)] for i in range(self.column_size)]
 
     def checkEmpty(self, x, y):
         return self.board[x][y] == '_'
@@ -81,7 +77,6 @@ class Board(object):
     def checkHorizontal(self):
         for row in self.board:
             pw = None
-            print row
             if row.count('C') >= 4:
                 pw = 'C'
             elif row.count('P') >= 4:
@@ -90,16 +85,23 @@ class Board(object):
                 winCounter = 1
                 prev_index = 0
                 for index, val in enumerate(row):
+                    print str((val, index))
                     if val == pw:
+                        print 'prev_index is: ' + str(prev_index)
+                        print 'index is: ' + str(index)
                         if prev_index + 1 == index:
                             winCounter += 1
                         prev_index = index
-                print winCounter
                 if winCounter == 4:
                     return pw
         return False
 
     def checkVerticalDiagonal(self):
+        """
+        >>> 1 + 1
+        3
+
+        """
         for rowIndex, row in enumerate(self.board):
             maxLength = len(self.board) - 4
             if rowIndex <= maxLength:
@@ -114,6 +116,11 @@ class Board(object):
                             return val
         return False
 
+
+
+
 if __name__ == '__main__':
-    game = ConnectFour()
-    game.play()
+    import doctest
+    doctest.testmod()
+    #game = ConnectFour()
+    #game.play()
