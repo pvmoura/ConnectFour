@@ -56,23 +56,26 @@ class Board(object):
     def __init__(self, columns = 7, column_size = 6):
         self.columns = columns
         self.column_size = column_size
-        self.board = [['_' for j in range(self.columns)] for i in range(self.column_size)]
+        self.resetBoard()
 
     def checkEmpty(self, x, y):
         return self.board[x][y] == '_'
+
+    def resetBoard(self):
+        self.board = [['_' for j in range(self.columns)] for i in range(self.column_size)]
 
     def drawBoard(self):
         columnNumbers = ""
         for i in range(self.columns + 1):
             if i != 0:
                 columnNumbers += str(i) + " "
-        print "\n" + columnNumbers + "\n"
+        output = "\n" + columnNumbers + "\n"
         for row in reversed(self.board):
             rowString = ""
             for elem in row:
                 rowString += str(elem) + " "
-            print rowString
-        print ""
+            output += rowString + "\n"
+        return output
 
     def checkHorizontal(self):
         for row in self.board:
@@ -85,10 +88,7 @@ class Board(object):
                 winCounter = 1
                 prev_index = 0
                 for index, val in enumerate(row):
-                    print str((val, index))
                     if val == pw:
-                        print 'prev_index is: ' + str(prev_index)
-                        print 'index is: ' + str(index)
                         if prev_index + 1 == index:
                             winCounter += 1
                         prev_index = index
