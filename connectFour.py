@@ -5,61 +5,94 @@ Connect 4 for Python
 import sys
 
 
+class HumanPlayer(object):
+    def __init__(self, turn=True, name='P'):
+        self.name = name
+        self.turn = turn
+
+    def check_valid_input(self, user_input, board):
+        user_input = user_input.lower()
+        return (user_input in
+                [str(x) for x in range(1, board.columns + 1)] + ['q'])
+
+    def move(self, board):
+        # add a move function for the human
+        while True:
+            move = raw_input(
+                self.name + "'s turn. Enter a column number to move: ")
+            if self.check_valid_input(move, board):
+                return move
+
+class ComputerPlayer(object):
+    def __init__(self, turn=False):
+        self.name = 'C'
+        self.turn = turn
+
+    def move(self):
+        # add a move function for the computer
+        pass
+
 class ConnectFour(object):
     def __init__(self, columns=7, column_size=6):
         self.board = Board(columns, column_size)
 
-    def checkWinner(self):
-        return (self.board.checkHorizontal() or
-                self.board.checkVerticalDiagonal())
+    def check_winner(self):
+        return (self.board.check_horizontal() or
+                self.board.check_vertical_and_diagonal())
 
-    def checkValidInput(self, user_input):
+    def check_valid_input(self, user_input):
         user_input = user_input.lower()
         return (user_input in
                 [str(x) for x in range(1, self.board.columns + 1)] + ['q'])
 
-    def read_player_move(self, current_player):
-        while True:
-            move = raw_input(
-                current_player + "'s turn. Enter a column number to move: ")
-            if self.checkValidInput(move):
-                return move
+    def read_player_move(self):
+        return self.current_player.move(self.board)
+        """while True:
+            if isinstance(self.current_player, HumanPlayer):
+                move = raw_input(
+                    self.current_player + "'s turn. Enter a column number to move: ")
+                if and self.check_valid_input(move)):
+                    return move
+            else:
+                return self.current_player.move()
+        """
 
-    def play(self):
-        player = 'P'
-        counter = 1
-        while not self.checkWinner():
+    def play(self, human=True):
+        players = [HumanPlayer(), HumanPlayer(False, 'Q')]
+        if not human:
+            players[1] = ComputerPlayer()
+        self.current_player = players[0]
+        while not self.check_winner():
             print self.board
-            move = self.read_player_move(player)
+            move = self.read_player_move()
             if move in ('q', 'Q'):
                 sys.exit(0)
             move = int(move)
             for cell in self.board:
                 if cell.col == move - 1 and cell.is_empty():
-                    self.board.set_cell(cell, player)
-                    player = self.next_player(player)
+                    self.board.set_cell(cell, self.current_player.name)
+                    self.current_player = self.get_next_player(players)[0]
                     break
 
         print self.board
         print player, " won the game!"
 
-    def next_player(self, player):
-        if player == 'P':
-            return 'C'
-        elif player == 'C':
-            return 'P'
+    def get_next_player(self, players_list):
+        for player in players_list:
+            player.turn = not player.turn
+        return [player for player in players_list if player.turn is True]
 
 
 class Board(object):
     def __init__(self, columns=7, column_size=6):
         self.columns = columns
         self.column_size = column_size
-        self.resetBoard()
+        self.reset_board()
 
     def set_cell(self, cell, value):
         self.board[cell.row][cell.col] = value
 
-    def resetBoard(self):
+    def reset_board(self):
         self.board = [['_' for j in range(self.columns)]
                       for i in range(self.column_size)]
 
@@ -83,7 +116,7 @@ class Board(object):
             output += rowString + "\n"
         return output
 
-    def checkHorizontal(self):
+    def check_horizontal(self):
         for row in self.board:
             pw = None
             if row.count('C') >= 4:
@@ -102,7 +135,7 @@ class Board(object):
                     return pw
         return False
 
-    def checkVerticalDiagonal(self):
+    def check_vertical_and_diagonal(self):
         """
         """
         for rowIndex, row in enumerate(self.board):
@@ -114,7 +147,6 @@ class Board(object):
                                                                  rowIndex,
                                                                  index):
                             return val
-                        # check diagonal
                         if self.check_diagonal_winning_condition(val,
                                                                  rowIndex,
                                                                  index,
