@@ -6,11 +6,11 @@ def checkWinners(board, addDistractions=False, vertical=False, gamePiece='P'):
     """ Generates vertical and horizontal winning boards and checks if the winner checkers work"""
     rangeValue = board.columns
     structure = "row"
-    method = board.checkHorizontal
+    method = board.check_for_win
     if vertical:
         rangeValue = board.column_size
         structure = "column"
-        method = board.checkVerticalDiagonal
+        method = board.check_for_win
     for i in range(rangeValue - 1):
         print "Now checking " + structure + ": " + str(i)
         offset = 0
@@ -41,7 +41,7 @@ def checkWinners(board, addDistractions=False, vertical=False, gamePiece='P'):
                         board.board[offset - 3][i] = gamePiece
                 if not method():
                     print errorMessage(i, offset, board.board[i], structure)
-            board.resetBoard()
+            board.reset_board()
             offset += 1
 
 def errorMessage(row, offset, other, structure):
@@ -49,15 +49,21 @@ def errorMessage(row, offset, other, structure):
 
 def checkDiagonals(board, gamePiece='P', addDistractions=False):
     """Generates diagonal winning boards and checks if winning checkers work"""
-    for i in range(board.column_size - 1):
-        
-        print "Now checking column: " + str(i)
-        offset = 0
-        #while offset <= board.column_size - 4:
-            #for j in range(offset, offset + 4):
-                #board.board
+    for i in range(board.columns - 4):
+        for start in range(board.columns - 4):
+            offset = 0
+            while offset <= (board.column_size - 4):
+                for j in range(offset, offset + 4):
+                    board.board[i + j][start + j] = gamePiece
+                print board
+                print i
+                offset += 1
+                board.reset_board()
+    
+
 
 if __name__ == '__main__':
     b = Board()
     checkWinners(b, True)
     checkWinners(b, True, True)
+    #checkDiagonals(b)
