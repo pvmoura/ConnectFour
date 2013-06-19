@@ -40,22 +40,8 @@ class ConnectFour(object):
         return (self.board.check_horizontal() or
                 self.board.check_vertical_and_diagonal())
 
-    def check_valid_input(self, user_input):
-        user_input = user_input.lower()
-        return (user_input in
-                [str(x) for x in range(1, self.board.columns + 1)] + ['q'])
-
     def read_player_move(self):
         return self.current_player.move(self.board)
-        """while True:
-            if isinstance(self.current_player, HumanPlayer):
-                move = raw_input(
-                    self.current_player + "'s turn. Enter a column number to move: ")
-                if and self.check_valid_input(move)):
-                    return move
-            else:
-                return self.current_player.move()
-        """
 
     def play(self, human=True):
         players = [HumanPlayer(), HumanPlayer(False, 'Q')]
@@ -75,7 +61,8 @@ class ConnectFour(object):
                     break
 
         print self.board
-        print player, " won the game!"
+        self.current_player = self.get_next_player(players)[0]
+        print self.current_player.name, "won the game!"
 
     def get_next_player(self, players_list):
         for player in players_list:
@@ -88,6 +75,12 @@ class Board(object):
         self.columns = columns
         self.column_size = column_size
         self.reset_board()
+        self.direction_tuples = {
+            "n": (0, 1)
+            "s": (0, -1)
+            "e": (1, 0)
+            "w": (-1, 0)
+        }
 
     def set_cell(self, cell, value):
         self.board[cell.row][cell.col] = value
@@ -101,7 +94,8 @@ class Board(object):
         """
         for row_index, row in enumerate(self.board):
             for col_index, col in enumerate(row):
-                yield Cell(col, row_index, col_index)
+                yield Cell(col, row_index, col_index,
+                        self.columns - 1, self.column_size - 1)
 
     def __str__(self):
         columnNumbers = ""
@@ -117,6 +111,14 @@ class Board(object):
         return output
 
     def check_horizontal(self):
+        # get a cell and check it's next four siblings
+        # if you encounter something not like the previous
+        # restart the counter and keep going
+        # there's no reason to continue if you're restarting
+        # the counter within 4 spots of the length of the row
+        for cell in self.board:
+            #check connections to right 
+
         for row in self.board:
             pw = None
             if row.count('C') >= 4:
@@ -134,6 +136,20 @@ class Board(object):
                 if winCounter == 4:
                     return pw
         return False
+
+    def translate_direction_to_tuple(direction):
+        tuple_list = [self.direction_tuples[direction] for direction in list(direction)]
+        direction = [0, 0]
+        for tup in tuple_list:
+            direction[0] += tup[0]
+            direction[1] += tup[1]
+        return direction
+
+    def get_connection(self, cell, direction):
+        translated_direction = translate_direction_to_tuple(direction)
+        row_position = translated_direction[0] + cell.row
+        column_position = translate_direction[1] + cell.col
+        return cell.value == self.board[row_position][column_position]
 
     def check_vertical_and_diagonal(self):
         """
@@ -172,10 +188,13 @@ class Board(object):
 
 
 class Cell(object):
-    def __init__(self, value, row_index, column_index):
+    def __init__(self, value, row_index, column_index, row_terminal, column_terminal):
         self.value = value
         self.row = row_index
         self.col = column_index
+        self.connections = {}
+        self.on_edge = self.is_edge(row_terminal, column_terminal)
+        self.on_corner = self.is_corner(row_terminal, column_terminal)
 
     def __str__(self):
         return "{value} at ({row}, {col})".format(value=self.value,
@@ -184,6 +203,16 @@ class Cell(object):
 
     def is_empty(self):
         return self.value == '_'
+
+    def is_edge(self, row_terminal, column_terminal):
+        return (self.row == 0 or self.row == row_terminal or
+                self.col == 0 or self.col == column_terminal)
+
+    def is_corner(self, row_terminal, column_terminal):
+        return ((self.row == 0 and self.col == 0) or
+                (self.row == 0 and self.col == column_terminal) 
+                (self.row == row_terminal and self.col == 0) or
+                (self.row == row_terminal and self.col == column_terminal))
 
 if __name__ == '__main__':
     game = ConnectFour()
