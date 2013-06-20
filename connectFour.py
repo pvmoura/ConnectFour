@@ -3,6 +3,7 @@
 Connect 4 for Python
 """
 import sys
+import random
 
 
 class HumanPlayer(object):
@@ -25,14 +26,20 @@ class HumanPlayer(object):
                 return move
 
 class ComputerPlayer(object):
-    def __init__(self, turn=False, current_board=None):
+    def __init__(self, turn=False, current_board=None, opponent_name='P'):
         self.name = 'C'
         self.turn = turn
         self.current_board = current_board
+        self.opponent = opponent_name
 
-    def move(self, ):
+    def move(self, board):
         # add a move function for the computer
-        pass
+        self.current_board = board
+        possible_moves = self.current_board.list_possible_moves()
+        possible_move = self.check_for_winning_move(board, possible_moves)
+        if possible_move:
+            return possible_move[1] + 1
+        return possible_moves[random.randint(0, len(possible_moves) - 1)][1] + 1
 
     def evaluate_board_utility(self, board):
         # evaluate the current board position based on a set of heuristics, return a value
@@ -42,15 +49,29 @@ class ComputerPlayer(object):
             #if board.count_sets_of_adjacent_checkers()
         return True
 
+    def check_for_winning_move(self, board, possible_moves):
+        cell_list = list(board)
+        new_board = Board(cell_list)
+        for move in possible_moves:
+            new_board.board[move[0]][move[1]].value = self.opponent
+            if new_board.check_for_win():
+                return move
+            new_board.board[move[0]][move[1]].value = self.name
+            if new_board.check_for_win():
+                return move
+            new_board.board[move[0]][move[1]].value = '_'
+        return new_board.check_for_win()
+
+
 
 class ConnectFour(object):
-    def __init__(self, columns=7, column_size=6):
-        self.board = Board(columns, column_size)
+    def __init__(self, cell_list=None, columns=7, column_size=6):
+        self.board = Board()
 
     def read_player_move(self, ):
         return self.current_player.move(self.board)
 
-    def play(self, human=True):
+    def play(self, human=False):
         players = [HumanPlayer(), HumanPlayer(False, 'Q')]
         if not human:
             players[1] = ComputerPlayer()
@@ -60,12 +81,11 @@ class ConnectFour(object):
             move = self.read_player_move()
             if move in ('q', 'Q'):
                 sys.exit(0)
-            move = int(move)
-            for cell in self.board:
-                if cell.col == move - 1 and cell.is_empty():
-                    self.board.set_cell(cell, self.current_player.name)
-                    self.current_player = self.get_next_player(players)[0]
-                    break
+            move = int(move) - 1
+            possible_moves = self.board.list_possible_moves()
+            position = [elem for elem in possible_moves if elem[1] == move]
+            self.board.set_cell(position[0], self.current_player.name)
+            self.current_player = self.get_next_player(players)[0]
 
         print self.board
         self.current_player = self.get_next_player(players)[0]
@@ -78,10 +98,13 @@ class ConnectFour(object):
 
 
 class Board(object):
-    def __init__(self, columns=7, column_size=6):
+    def __init__(self, cell_list=None, columns=7, column_size=6):
         self.columns = columns
         self.column_size = column_size
-        self.initialize_board()
+        if not cell_list:
+            self.initialize_board()
+        else:
+            self.create_board(cell_list)
         self.direction_tuples = {
             "n": (1, 0),
             "s": (-1, 0),
@@ -115,13 +138,14 @@ class Board(object):
         self.board = [[ Cell('_', i, j, self.columns - 1, self.column_size - 1)
                 for j in range(self.columns)]
                 for i in range(self.column_size)]
-        #self.board = [[ place_holder for j in range(self.columns)]
-                        #for i in range(self.column_size)]
 
-    def set_cell(self, cell, player_name):
+    def create_board(self, cell_list):
+        self.board = [cell_list[x:x+self.columns] for x in xrange(0, len(cell_list), self.columns)]
+
+    def set_cell(self, position_tuple, player_name):
+        cell = self.board[position_tuple[0]][position_tuple[1]]
         if cell.is_empty():
             cell.value = player_name
-            self.board[cell.row][cell.col].value = player_name
 
     def search_for_win(self, cell, direction):
         return self.count_sets_of_adjacent_checkers(cell, direction, 3) == 3
@@ -134,7 +158,6 @@ class Board(object):
                     self.search_for_win(cell, "ne") or
                     self.search_for_win(cell, "se")):
                     return True
-        print self.list_possible_moves()
         return False
 
     def translate_direction_to_list(self, direction):
