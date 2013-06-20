@@ -17,31 +17,31 @@ def checkWinners(board, addDistractions=False, vertical=False, gamePiece='P'):
         while offset <= rangeValue - 4:
             for j in range(offset, offset + 4):
                 if not vertical:
-                    board.board[i][j] = gamePiece
+                    board.board[i][j].value = gamePiece
                 else:
-                    board.board[j][i] = gamePiece
+                    board.board[j][i].value = gamePiece
             if not method():
                 print errorMessage(i, offset, board.board[i], structure)
             if addDistractions:
                 if not vertical:
-                    board.board[i][offset - 2] = gamePiece
+                    board.board[i][offset - 2].value = gamePiece
                 else:
-                    board.board[offset - 2][i] = gamePiece
+                    board.board[offset - 2][i].value = gamePiece
                 if not method():
                     print errorMessage(i, offset, board.board[i], structure)
                 if offset == 0:
                     if not vertical:
-                        board.board[i][offset - 1] = gamePiece
+                        board.board[i][offset - 1].value = gamePiece
                     else:
-                        board.board[offset - 1][i] = gamePiece
+                        board.board[offset - 1][i].value = gamePiece
                 elif offset == board.columns - 4:
                     if not vertical:
-                        board.board[i][offset - 3] = gamePiece
+                        board.board[i][offset - 3].value = gamePiece
                     else:
-                        board.board[offset - 3][i] = gamePiece
+                        board.board[offset - 3][i].value = gamePiece
                 if not method():
                     print errorMessage(i, offset, board.board[i], structure)
-            board.reset_board()
+            board.initialize_board()
             offset += 1
 
 def errorMessage(row, offset, other, structure):
@@ -54,7 +54,7 @@ def checkDiagonals(board, gamePiece='P', addDistractions=False):
             offset = 0
             while offset <= (board.column_size - 4):
                 for j in range(offset, offset + 4):
-                    board.board[i + j][start + j] = gamePiece
+                    board.board[i + j][start + j].value = gamePiece
                 print board
                 print i
                 offset += 1

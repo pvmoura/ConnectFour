@@ -6,9 +6,10 @@ import sys
 
 
 class HumanPlayer(object):
-    def __init__(self, turn=True, name='P'):
+    def __init__(self, turn=True, name='P', current_board=None):
         self.name = name
         self.turn = turn
+        self.current_board = current_board
 
     def check_valid_input(self, user_input, board):
         user_input = user_input.lower()
@@ -24,13 +25,23 @@ class HumanPlayer(object):
                 return move
 
 class ComputerPlayer(object):
-    def __init__(self, turn=False):
+    def __init__(self, turn=False, current_board=None):
         self.name = 'C'
         self.turn = turn
+        self.current_board = current_board
 
     def move(self, ):
         # add a move function for the computer
         pass
+
+    def evaluate_board_utility(self, board):
+        # evaluate the current board position based on a set of heuristics, return a value
+        possible_moves = board.list_possible_moves()
+        for move in possible_moves:
+            pass
+            #if board.count_sets_of_adjacent_checkers()
+        return True
+
 
 class ConnectFour(object):
     def __init__(self, columns=7, column_size=6):
@@ -83,8 +94,9 @@ class Board(object):
         """
         for row_index, row in enumerate(self.board):
             for col_index, col in enumerate(row):
-                yield Cell(col, row_index, col_index,
-                        self.columns - 1, self.column_size - 1)
+                #yield Cell(col, row_index, col_index,
+                        #self.columns - 1, self.column_size - 1)
+                yield col
 
     def __str__(self, ):
         columnNumbers = ""
@@ -95,35 +107,34 @@ class Board(object):
         for row in reversed(self.board):
             rowString = ""
             for elem in row:
-                rowString += str(elem) + " "
+                rowString += str(elem.value) + " "
             output += rowString + "\n"
         return output
 
     def initialize_board(self, place_holder='_'):
-        #self.board = [[ Cell('_', j, i, self.columns - 1, self.column_size - 1)
-                #for j in range(self.columns)]
-                #for i in range(self.column_size)]
-        self.board = [[ place_holder for j in range(self.columns)]
-                        for i in range(self.column_size)]
+        self.board = [[ Cell('_', i, j, self.columns - 1, self.column_size - 1)
+                for j in range(self.columns)]
+                for i in range(self.column_size)]
+        #self.board = [[ place_holder for j in range(self.columns)]
+                        #for i in range(self.column_size)]
 
-    def search_for_win(self, cell, direction, row_change=0, col_change=0):
-        winCounter = 1
-        while self.get_connection(cell, direction) and winCounter <= 4:
-            cell = Cell(
-                cell.value, cell.row + row_change, cell.col + col_change)
-            winCounter += 1
-        if winCounter == 4:
-            return True
-        return False
+    def set_cell(self, cell, player_name):
+        if cell.is_empty():
+            cell.value = player_name
+            self.board[cell.row][cell.col].value = player_name
+
+    def search_for_win(self, cell, direction):
+        return self.count_sets_of_adjacent_checkers(cell, direction, 3) == 3
 
     def check_for_win(self, ):
         for cell in self:
             if not cell.is_empty():
-                if (self.search_for_win(cell, "e", 0, 1) or
-                    self.search_for_win(cell, "n", 1, 0) or
-                    self.search_for_win(cell, "ne", 1, 1) or
-                    self.search_for_win(cell, "se", -1, 1)):
+                if (self.search_for_win(cell, "e") or
+                    self.search_for_win(cell, "n") or
+                    self.search_for_win(cell, "ne") or
+                    self.search_for_win(cell, "se")):
                     return True
+        print self.list_possible_moves()
         return False
 
     def translate_direction_to_list(self, direction):
@@ -134,15 +145,42 @@ class Board(object):
             direction[1] += tup[1]
         return direction
 
-    def get_connection(self, cell, direction):
-        translated_direction = self.translate_direction_to_list(direction)
-        row_position = translated_direction[0] + cell.row
-        column_position = translated_direction[1] + cell.col
+    def get_connection(self, cell, direction, check_for_same=True,
+                        row_change=0, col_change=0):
+        if direction:
+            dir_vals = self.translate_direction_to_list(direction)
+            row_position = dir_vals[0] + cell.row
+            column_position = dir_vals[1] + cell.col
+        else:
+            row_position = row_change + cell.row
+            column_position = col_change + cell.col
         if (row_position >= 0 and column_position >= 0 and
             row_position < self.column_size and column_position < self.columns):
-            return not cell.is_empty() and cell.value == self.board[row_position][column_position]
+            if check_for_same:
+                return (not cell.is_empty() and
+                        cell.value == self.board[row_position][column_position].value)
+            else:
+                return (not self.board[row_position][column_position].is_empty()
+                        and cell.is_empty())
         else:
             return None
+
+    def count_sets_of_adjacent_checkers(self, cell, direction, max_count=4):
+        counter = 0
+        dir_vals = self.translate_direction_to_list(direction)
+        while ( self.get_connection(cell, False, True, dir_vals[0], dir_vals[1])
+                and counter <= max_count):
+            cell = Cell(
+                cell.value, cell.row + dir_vals[0], cell.col + dir_vals[1])
+            counter += 1
+        return counter
+
+    def list_possible_moves(self, ):
+        return [(cell.row, cell.col) for cell in self if cell.is_empty() and
+                (self.get_connection(cell, "s", False) is None or
+                 self.get_connection(cell, "s", False) is True)]
+
+
 
 class Cell(object):
     def __init__(self, value, row_index, column_index, row_terminal=6, column_terminal=5):
