@@ -43,6 +43,38 @@ class ComputerPlayer(object):
             return move
         return possible_moves[random.randint(0, len(possible_moves) - 1)][1] + 1
 
+    def move_minimax(self, board):
+        pos_moves = board.list_possible_moves()
+
+        def flip(player):
+            return 1 if player == self.name else 0
+
+        def descendants(moves, board, player):
+            def copy_ret(board, move, player):
+                new_board = copy.deepcopy(board)
+                new_board.set_cell(move, player)
+                return new_board
+
+            return [solve_tree(copy_ret(board, move, player),
+                    flip(player), move) for move in moves]
+
+        def solve_tree(board, player, move=None):
+            moves = board.list_possible_moves()
+            winner = board.check_for_win()
+            if moves == [] or winner is not False:
+                if winner is not False:
+                    # here is where to call utility function
+                    return 1
+                else:
+                    # here is where to call something else
+                    return 0
+            else:
+                results = descendants(moves, board, player)
+                min_or_max = max if player == self.name else min
+                result = min_or_max(results)
+                return (result[0], move if move is not None else result[1])
+            return solve_tree(self.board, self.name)
+
     def evaluate_board_utility(self, board):
         # evaluate the current board position based on a set of heuristics, return a value
         possible_moves = board.list_possible_moves()
@@ -51,13 +83,13 @@ class ComputerPlayer(object):
             #if board.count_sets_of_adjacent_checkers()
         return True
 
-
     def recurse_through_minimax(self, board):
         if self.counter == 4 or len(board.list_possible_moves()) == 0:
             return evaluate_board_utility(board)
         else:
             self.tree = max()
             recurse_through_minimax(board)
+
 
     def create_future_boards(self, board):
         """This function creates future boards
