@@ -34,7 +34,7 @@ class ComputerPlayer(object):
         self.current_board = current_board
         self.opponent = opponent_name
 
-    def move(self, board):
+    def move_test(self, board):
         # add a move function for the computer
         self.current_board = board
         possible_moves = self.current_board.list_possible_moves()
@@ -43,75 +43,60 @@ class ComputerPlayer(object):
             return move
         return possible_moves[random.randint(0, len(possible_moves) - 1)][1] + 1
 
-    def move_minimax(self, board):
+    def move(self, board):
+        # what are the steps to get this to work?
+        # 1. make a copy of the board. 2. move to the desired place. 3. check if you've reached a terminal state on board.
+        # 4. if you have reached terminal call an evaluation function. 5. else keep recursing down 6. return a move
         pos_moves = board.list_possible_moves()
+        level = 0
+        self.current_board = board
 
         def flip(player):
-            return 1 if player == self.name else 0
+            return self.opponent if player == self.name else self.name
 
         def descendants(moves, board, player):
-            def copy_ret(board, move, player):
-                new_board = copy.deepcopy(board)
-                new_board.set_cell(move, player)
-                return new_board
-
-            return [solve_tree(copy_ret(board, move, player),
+            new_board = copy.deepcopy(board)
+            new_board.set_cell(move, player)
+            return [solve_tree(new_board,
                     flip(player), move) for move in moves]
 
-        def solve_tree(board, player, move=None):
-            moves = board.list_possible_moves()
+        def future_game_states(moves, board, level, player):
+            new_board = copy.deepcopy(board)
+            ret = []
+            for move in moves:
+                new_board.set_cell(move, player)
+                ret.append(minimax_recurse(new_board, flip(player), level + 1, move))
+            return ret
+
+        def minimax_recurse(board, player, level=0, move=None):
             winner = board.check_for_win()
-            if moves == [] or winner is not False:
-                if winner is not False:
-                    # here is where to call utility function
-                    return 1
-                else:
-                    # here is where to call something else
-                    return 0
+            moves = board.list_possible_moves()
+            if moves == [] or winner is not False or level > 4:
+                return self.evaluate_board_utility(board, move), move
             else:
-                results = descendants(moves, board, player)
-                min_or_max = max if player == self.name else min
-                result = min_or_max(results)
-                return (result[0], move if move is not None else result[1])
-            return solve_tree(self.board, self.name)
+                result_list = future_game_states(moves, board, level, player)
+                min_or_max = min if player == self.name else max
+                result = min_or_max(result_list)
+                return result[0], move if move is not None else result[1]
+        return minimax_recurse(self.current_board, self.name, 0)[1]
 
-    def evaluate_board_utility(self, board):
+    def evaluate_board_utility(self, board, move):
         # evaluate the current board position based on a set of heuristics, return a value
-        possible_moves = board.list_possible_moves()
-        for move in possible_moves:
-            pass
-            #if board.count_sets_of_adjacent_checkers()
-        return True
+        winner = board.check_for_win()
+        cell = board.get_cell(move)
+        multiplier = 1
+        if cell.value == self.opponent:
+            multiplier = -1
+        if winner:
+            return 100 * multiplier
+        if move:
+            output = 0
+            for direction in board.combination_directions:
 
-    def recurse_through_minimax(self, board):
-        if self.counter == 4 or len(board.list_possible_moves()) == 0:
-            return evaluate_board_utility(board)
-        else:
-            self.tree = max()
-            recurse_through_minimax(board)
-
-
-    def create_future_boards(self, board):
-        """This function creates future boards
-        """
-        new_board = copy.deepcopy(board)
-        new_board.list_possible_moves()
-
-    def choose_next_move(self, ):
-        """In this function I want to iterate through the possible_moves
-        and for each move create a branch of subsequent possible moves.
-        then, once I reach 4 levels deep or whatever I evaluate the terminal
-        state and minimax backwards
-        """
-        possible_moves = self.current_board.list_possible_moves()
-        # call branch creator that defines future possible moves
-
-
-    def create_possible_boards(self, board):
-        new_board = copy.deepcopy(board)
-
-    def create_list_of_possible_boards(self, ):
-        pass
+                checkers_in_a_row = (board.count_sets_of_adjacent_checkers(cell, direction[0]) +
+                                     board.count_sets_of_adjacent_checkers(cell, direction[1]))
+                output += checkers_in_a_row
+            return output * multiplier
 
     def test_possible_moves(self, board, possible_moves, player_name,
                             direction_list, check_value):
@@ -189,6 +174,8 @@ class Board(object):
             "e": (0, 1),
             "w": (0, -1)
         }
+        self.directions = ['nw', 'ne', 'sw', 'se', 'e', 'w', 's']
+        self.combination_directions = [('nw','se'), ('ne', 'sw'), ('e', 'w'), ('s', 'n')]
 
     def __iter__(self, ):
         """
@@ -283,6 +270,12 @@ class Board(object):
             counter += 1
         return counter
 
+    def count_one_adjacent(self, cell, direction):
+        return self.count_sets_of_adjacent_checkers(cell, direction, 1) == 1
+
+    def count_two_adjacent(self, cell, direction):
+        return self.count_sets_of_adjacent_checkers(cell, direction, 2) == 2
+
     def list_possible_moves(self, ):
         return [(cell.row, cell.col) for cell in self if cell.is_empty() and
                 (self.get_connection(cell, "s", False) is None or
@@ -296,6 +289,8 @@ class Cell(object):
         self.row = row_index
         self.col = column_index
         self.connections = {}
+        self.center_weight = (distance_from_col_edge(column_terminal) +
+                              distance_from_row_edge(row_terminal)) * .1
         self.on_edge = self.is_edge(row_terminal, column_terminal)
         self.on_corner = self.is_corner(row_terminal, column_terminal)
 
@@ -310,6 +305,18 @@ class Cell(object):
     def is_edge(self, row_terminal, column_terminal):
         return (self.row == 0 or self.row == row_terminal or
                 self.col == 0 or self.col == column_terminal)
+
+    def distance_from_col_edge(self, column_terminal):
+        if self.col <= column_terminal/2:
+            return self.col
+        else:
+            return column_terminal - self.col
+
+    def distance_from_row_edge(self, row_terminal):
+        if self.row < row_terminal/2:
+            return self.row
+        else:
+            return row_terminal - self.row
 
     def is_corner(self, row_terminal, column_terminal):
         return ((self.row == 0 and self.col == 0) or
