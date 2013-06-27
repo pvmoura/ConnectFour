@@ -47,26 +47,8 @@ class ComputerPlayer(object):
         # what are the steps to get this to work?
         # 1. make a copy of the board. 2. move to the desired place. 3. check if you've reached a terminal state on board.
         # 4. if you have reached terminal call an evaluation function. 5. else keep recursing down 6. return a move
-        pos_moves = board.list_possible_moves()
-        level = 0
-        self.current_board = board
-
         def flip(player):
             return self.opponent if player == self.name else self.name
-
-        def descendants(moves, board, player):
-            new_board = copy.deepcopy(board)
-            new_board.set_cell(move, player)
-            return [solve_tree(new_board,
-                    flip(player), move) for move in moves]
-
-        def future_game_states(moves, board, level, player):
-            new_board = copy.deepcopy(board)
-            ret = []
-            for move in moves:
-                new_board.set_cell(move, player)
-                ret.append(minimax_recurse(new_board, flip(player), level + 1, move))
-            return ret
 
         def minimax_recurse(board, player, level=0, move=None):
             winner = board.check_for_win()
@@ -74,11 +56,18 @@ class ComputerPlayer(object):
             if moves == [] or winner is not False or level > 4:
                 return self.evaluate_board_utility(board, move), move
             else:
-                result_list = future_game_states(moves, board, level, player)
+                new_board = copy.deepcopy(board)
+                result_list = []
+                for move in moves:
+                     new_board.set_cell(move, player)
+                     result_list.append(minimax_recurse(new_board, flip(player), level + 1, move))
                 min_or_max = min if player == self.name else max
                 result = min_or_max(result_list)
                 return result[0], move if move is not None else result[1]
-        return minimax_recurse(self.current_board, self.name, 0)[1]
+        pos_end = self.check_for_immediate_win(board, board.list_possible_moves())
+        if pos_end:
+            return pos_end
+        return minimax_recurse(board, self.name, 0)[1]
 
     def evaluate_board_utility(self, board, move):
         # evaluate the current board position based on a set of heuristics, return a value
@@ -92,10 +81,17 @@ class ComputerPlayer(object):
         if move:
             output = 0
             for direction in board.combination_directions:
-
+                # what do I want to do here? I would like to check if each move sets up a possible win
+                # I want to count up the possible wins and apply some sort of weight to that value
+                # I also want to take into account the possibility of doubling up. First thing is first.
+                # Let's figure out how to count the possible wins
+                # To count the possible wins, first count the number in a row. Then, check the endpoints for empty cells
+                # Check both endpoints. A potential win in one direction weighs less than one in both directions
                 checkers_in_a_row = (board.count_sets_of_adjacent_checkers(cell, direction[0]) +
                                      board.count_sets_of_adjacent_checkers(cell, direction[1]))
+
                 output += checkers_in_a_row
+
             return output * multiplier
 
     def test_possible_moves(self, board, possible_moves, player_name,
@@ -170,12 +166,12 @@ class Board(object):
             self.create_board(cell_list)
         self.direction_tuples = {
             "n": (1, 0),
-            "s": (-1, 0),
             "e": (0, 1),
+            "s": (-1, 0),
             "w": (0, -1)
         }
         self.directions = ['nw', 'ne', 'sw', 'se', 'e', 'w', 's']
-        self.combination_directions = [('nw','se'), ('ne', 'sw'), ('e', 'w'), ('s', 'n')]
+        self.combination_directions = [('nw','se'), ('sw', 'ne'), ('w', 'e'), ('n', 's')]
 
     def __iter__(self, ):
         """
@@ -212,12 +208,22 @@ class Board(object):
         return Board(cell_list)
 
     def get_cell(self, position_tuple):
-        return self.board[position_tuple[0]][position_tuple[1]]
+        try:
+            return self.board[position_tuple[0]][position_tuple[1]]
+        except IndexError:
+            return False
 
-    def set_cell(self, position_tuple, player_name):
-        cell = self.board[position_tuple[0]][position_tuple[1]]
-        if cell.is_empty():
-            cell.value = player_name
+
+    def get_cell_by_change(self, cell, change_tuple):
+        return self.get_cell((cell.row + change_tuple[0], cell.col + change_tuple[1]))
+
+    def set_cell(self, position_tuple, player_name, overwrite=False):
+        try:
+            cell = self.board[position_tuple[0]][position_tuple[1]]
+            if cell.is_empty() or overwrite:
+                cell.value = player_name
+        except IndexError:
+            return False
 
     def search_for_win(self, cell, direction):
         return self.count_sets_of_adjacent_checkers(cell, direction, 3) == 3
@@ -239,6 +245,7 @@ class Board(object):
             direction[0] += tup[0]
             direction[1] += tup[1]
         return direction
+
 
     def get_connection(self, cell, direction, check_for_same=True,
                         row_change=0, col_change=0):
@@ -270,6 +277,22 @@ class Board(object):
             counter += 1
         return counter
 
+    def find_possible_wins(self, cell, combination_direction):
+        total_to_left = self.count_sets_of_adjacent_checkers(cell, combination_direction[0])
+        total_to_right  = self.count_sets_of_adjacent_checkers(cell, combination_direction[1])
+        left_change = [elem * total_to_left for
+                         elem in self.translate_direction_to_list(direction[0])]
+        right_change = [elem * total_to_right for
+                          elem in self.translate_direction_to_list(direction[1])]
+        left_endpoint = self.get_cell_by_change(cell, left_change)
+        right_endpoint = self.get_cell_by_change(cell, right_change)
+        if left_endpoint and left_endpoint.is_empty():
+            empties_to_left = self.count_sets_of_adjacent_checkers(left_endpoint)
+        if right_endpoint and right_endpoint.is_empty():
+            empties_to_right = self.count_sets_of_adjacent_checkers(right_endpoint)
+        return False
+
+
     def count_one_adjacent(self, cell, direction):
         return self.count_sets_of_adjacent_checkers(cell, direction, 1) == 1
 
@@ -289,8 +312,8 @@ class Cell(object):
         self.row = row_index
         self.col = column_index
         self.connections = {}
-        self.center_weight = (distance_from_col_edge(column_terminal) +
-                              distance_from_row_edge(row_terminal)) * .1
+        self.center_weight = (self.distance_from_col_edge(column_terminal) +
+                              self.distance_from_row_edge(row_terminal)) * .1
         self.on_edge = self.is_edge(row_terminal, column_terminal)
         self.on_corner = self.is_corner(row_terminal, column_terminal)
 
