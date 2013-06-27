@@ -5,6 +5,7 @@ Connect 4 for Python
 import sys
 import random
 import copy
+import pdb
 
 
 class HumanPlayer(object):
@@ -259,8 +260,9 @@ class Board(object):
         if (row_position >= 0 and column_position >= 0 and
             row_position < self.column_size and column_position < self.columns):
             if check_for_same:
-                return (not cell.is_empty() and
-                        cell.value == self.board[row_position][column_position].value)
+                #return (not cell.is_empty() and
+                #        cell.value == self.board[row_position][column_position].value)
+                return cell.value == self.get_cell((row_position, column_position)).value
             else:
                 return (not self.board[row_position][column_position].is_empty()
                         and cell.is_empty())
@@ -278,20 +280,29 @@ class Board(object):
         return counter
 
     def find_possible_wins(self, cell, combination_direction):
+        pdb.set_trace()
         total_to_left = self.count_sets_of_adjacent_checkers(cell, combination_direction[0])
         total_to_right  = self.count_sets_of_adjacent_checkers(cell, combination_direction[1])
-        left_change = [elem * total_to_left for
-                         elem in self.translate_direction_to_list(direction[0])]
-        right_change = [elem * total_to_right for
-                          elem in self.translate_direction_to_list(direction[1])]
+        if total_to_left > 0:
+            left_change = [elem * (total_to_left + 1) for
+                         elem in self.translate_direction_to_list(combination_direction[0])]
+        else:
+            left_change = self.translate_direction_to_list(combination_direction[0])
+        if total_to_right > 0:
+            right_change = [elem * (total_to_right + 1) for
+                          elem in self.translate_direction_to_list(combination_direction[1])]
+        else:
+            right_change = self.translate_direction_to_list(combination_direction[1])
         left_endpoint = self.get_cell_by_change(cell, left_change)
         right_endpoint = self.get_cell_by_change(cell, right_change)
-        if left_endpoint and left_endpoint.is_empty():
-            empties_to_left = self.count_sets_of_adjacent_checkers(left_endpoint)
-        if right_endpoint and right_endpoint.is_empty():
-            empties_to_right = self.count_sets_of_adjacent_checkers(right_endpoint)
-        return False
+        empties_to_left = 0
+        empties_to_right = 0
 
+        if left_endpoint and left_endpoint.is_empty():
+            empties_to_left = self.count_sets_of_adjacent_checkers(left_endpoint, combination_direction[0]) + 1
+        if right_endpoint and right_endpoint.is_empty():
+            empties_to_right = self.count_sets_of_adjacent_checkers(right_endpoint, combination_direction[1]) + 1
+        return (empties_to_right + empties_to_left + total_to_left + total_to_right) >= 4
 
     def count_one_adjacent(self, cell, direction):
         return self.count_sets_of_adjacent_checkers(cell, direction, 1) == 1
