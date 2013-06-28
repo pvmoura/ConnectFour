@@ -72,6 +72,7 @@ class ComputerPlayer(object):
 
     def evaluate_board_utility(self, board, move):
         # evaluate the current board position based on a set of heuristics, return a value
+        pdb.set_trace()
         winner = board.check_for_win()
         cell = board.get_cell(move)
         multiplier = 1
@@ -216,7 +217,11 @@ class Board(object):
 
 
     def get_cell_by_change(self, cell, change_tuple):
-        return self.get_cell((cell.row + change_tuple[0], cell.col + change_tuple[1]))
+        row_change = cell.row + change_tuple[0]
+        col_change = cell.col + change_tuple[1]
+        if row_change < 0 or col_change < 0:
+            return False
+        return self.get_cell((row_change, col_change))
 
     def set_cell(self, position_tuple, player_name, overwrite=False):
         try:
@@ -280,29 +285,24 @@ class Board(object):
         return counter
 
     def find_possible_wins(self, cell, combination_direction):
-        pdb.set_trace()
-        total_to_left = self.count_sets_of_adjacent_checkers(cell, combination_direction[0])
-        total_to_right  = self.count_sets_of_adjacent_checkers(cell, combination_direction[1])
-        if total_to_left > 0:
-            left_change = [elem * (total_to_left + 1) for
-                         elem in self.translate_direction_to_list(combination_direction[0])]
-        else:
-            left_change = self.translate_direction_to_list(combination_direction[0])
-        if total_to_right > 0:
-            right_change = [elem * (total_to_right + 1) for
-                          elem in self.translate_direction_to_list(combination_direction[1])]
-        else:
-            right_change = self.translate_direction_to_list(combination_direction[1])
-        left_endpoint = self.get_cell_by_change(cell, left_change)
-        right_endpoint = self.get_cell_by_change(cell, right_change)
-        empties_to_left = 0
-        empties_to_right = 0
+        left_openings = self.check_win_by_direction(cell, combination_direction[0])
+        right_openings = self.check_win_by_direction(cell, combination_direction[1])
+        return (left_openings + right_openings) >= 4
 
-        if left_endpoint and left_endpoint.is_empty():
-            empties_to_left = self.count_sets_of_adjacent_checkers(left_endpoint, combination_direction[0]) + 1
-        if right_endpoint and right_endpoint.is_empty():
-            empties_to_right = self.count_sets_of_adjacent_checkers(right_endpoint, combination_direction[1]) + 1
-        return (empties_to_right + empties_to_left + total_to_left + total_to_right) >= 4
+    def check_win_by_direction(self, cell, direction):
+        total_chain = self.count_sets_of_adjacent_checkers(cell, direction)
+        change_list = self.translate_direction_to_list(direction)
+        if total_chain > 0:
+            change_list = [elem * (total_chain + 1) for elem in change_list]
+        endpoint = self.get_cell_by_change(cell, change_list)
+        empties = 0
+        if endpoint and endpoint.is_empty():
+            empties = self.count_sets_of_adjacent_checkers(endpoint, direction) + 1
+        return empties + total_chain
+
+
+#    def find_possible_win_right(self, cell, direction):
+
 
     def count_one_adjacent(self, cell, direction):
         return self.count_sets_of_adjacent_checkers(cell, direction, 1) == 1
