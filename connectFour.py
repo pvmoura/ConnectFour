@@ -173,7 +173,7 @@ class Board(object):
             "w": (0, -1)
         }
         self.directions = ['nw', 'ne', 'sw', 'se', 'e', 'w', 's']
-        self.combination_directions = [('nw','se'), ('sw', 'ne'), ('w', 'e'), ('n', 's')]
+        self.combination_directions = [('nw','se'), ('sw', 'ne'), ('w', 'e')]
 
     def __iter__(self, ):
         """
@@ -254,7 +254,7 @@ class Board(object):
 
 
     def get_connection(self, cell, direction, check_for_same=True,
-                        row_change=0, col_change=0):
+                        row_change=0, col_change=0, check_for=None):
         if direction:
             dir_vals = self.translate_direction_to_list(direction)
             row_position = dir_vals[0] + cell.row
@@ -262,34 +262,70 @@ class Board(object):
         else:
             row_position = row_change + cell.row
             column_position = col_change + cell.col
+        value = cell.value
+        if check_for:
+            value = check_for
         if (row_position >= 0 and column_position >= 0 and
             row_position < self.column_size and column_position < self.columns):
             if check_for_same:
                 #return (not cell.is_empty() and
                 #        cell.value == self.board[row_position][column_position].value)
-                return cell.value == self.get_cell((row_position, column_position)).value
+                return value == self.get_cell((row_position, column_position)).value
             else:
                 return (not self.board[row_position][column_position].is_empty()
                         and cell.is_empty())
         else:
             return None
 
-    def count_sets_of_adjacent_checkers(self, cell, direction, max_count=4):
+    def count_sets_of_adjacent_checkers(self, cell, direction, max_count=4, check_for=None):
         counter = 0
         dir_vals = self.translate_direction_to_list(direction)
-        while ( self.get_connection(cell, False, True, dir_vals[0], dir_vals[1])
+        while ( self.get_connection(cell, False, True, dir_vals[0], dir_vals[1], check_for)
                 and counter <= max_count):
             cell = Cell(
                 cell.value, cell.row + dir_vals[0], cell.col + dir_vals[1])
             counter += 1
         return counter
 
-    def find_possible_wins(self, cell, combination_direction):
-        left_openings = self.check_win_by_direction(cell, combination_direction[0])
-        right_openings = self.check_win_by_direction(cell, combination_direction[1])
-        return (left_openings + right_openings) >= 4
+    def get_move_heuristics(self, cell):
+        # Here I want to return a dictionary with all the relevant information
+        # that I'll need in my evaluate utility function
+        # for example if the relevant square has possibilities on both endpoints
+        # and if it is a win possibility
+        # and then defensive information as well of course
+        pdb.set_trace()
+        data = {}
+        possible_wins = 0
+        right_openings = 0
+        for comb_direction in self.combination_directions:
+            data[comb_direction] = {
+                'pos_win': False
+            }
+            left_adjacent_empties = self.count_sets_of_adjacent_checkers(
+                                cell, comb_direction[0], 6, '_')
+            right_adjacent_empties = self.count_sets_of_adjacent_checkers(
+                                cell, comb_direction[1], 6, '_')
+            #if self.get_cell_by_change(()) == cell.value:
+            # check if cell value at the end of a chain of empties is
+            # the same as the cell's value that we're checking
+            # and then set a new starting point for checking the endpoint
+            # 
+            left_side = self.get_chain_and_empties(cell, comb_direction[0])
+            right_side = self.get_chain_and_empties(cell, comb_direction[1])
+            data[comb_direction]['left_openings'] = left_side[0]
+            data[comb_direction]['right_openings'] = right_side[0]
+            data[comb_direction]['chain_length'] = left_side[1] + right_side[1]
+            if self.find_possible_wins(cell, comb_direction):
+                possible_wins += 1
+                data[comb_direction]['pos_win'] = True
+        return data
 
-    def check_win_by_direction(self, cell, direction):
+    def find_possible_wins(self, cell, combination_direction):
+        left_openings = self.get_chain_and_empties(cell, combination_direction[0])
+        right_openings = self.get_chain_and_empties(cell, combination_direction[1])
+        return (left_openings[0] + left_openings[1] + right_openings[0] + right_openings[1]) >= 3
+
+    def get_chain_and_empties(self, cell, direction):
         total_chain = self.count_sets_of_adjacent_checkers(cell, direction)
         change_list = self.translate_direction_to_list(direction)
         if total_chain > 0:
@@ -298,11 +334,7 @@ class Board(object):
         empties = 0
         if endpoint and endpoint.is_empty():
             empties = self.count_sets_of_adjacent_checkers(endpoint, direction) + 1
-        return empties + total_chain
-
-
-#    def find_possible_win_right(self, cell, direction):
-
+        return empties, total_chain
 
     def count_one_adjacent(self, cell, direction):
         return self.count_sets_of_adjacent_checkers(cell, direction, 1) == 1
