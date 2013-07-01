@@ -72,7 +72,7 @@ class ComputerPlayer(object):
 
     def evaluate_board_utility(self, board, move):
         # evaluate the current board position based on a set of heuristics, return a value
-        pdb.set_trace()
+        #pdb.set_trace()
         winner = board.check_for_win()
         cell = board.get_cell(move)
         multiplier = 1
@@ -254,7 +254,7 @@ class Board(object):
 
 
     def get_connection(self, cell, direction, check_for_same=True,
-                        row_change=0, col_change=0, check_for=None):
+                        row_change=0, col_change=0, check_val=None):
         if direction:
             dir_vals = self.translate_direction_to_list(direction)
             row_position = dir_vals[0] + cell.row
@@ -263,37 +263,39 @@ class Board(object):
             row_position = row_change + cell.row
             column_position = col_change + cell.col
         value = cell.value
-        if check_for:
-            value = check_for
+        if check_val:
+            value = check_val
         if (row_position >= 0 and column_position >= 0 and
             row_position < self.column_size and column_position < self.columns):
+            check_cell = self.get_cell((row_position, column_position))
             if check_for_same:
-                #return (not cell.is_empty() and
-                #        cell.value == self.board[row_position][column_position].value)
-                return value == self.get_cell((row_position, column_position)).value
+                return value == check_cell.value
+            elif check_val:
+                return (value == self.check_cell.value or check_cell.is_empty())
             else:
                 return (not self.board[row_position][column_position].is_empty()
                         and cell.is_empty())
         else:
             return None
 
-    def count_sets_of_adjacent_checkers(self, cell, direction, max_count=4, check_for=None):
+    def count_sets_of_adjacent_checkers(self, cell, direction, max_count=4,
+                                        check_val=None, check_for_same=True):
         counter = 0
         dir_vals = self.translate_direction_to_list(direction)
-        while ( self.get_connection(cell, False, True, dir_vals[0], dir_vals[1], check_for)
+        while ( self.get_connection(cell, False, check_for_same, dir_vals[0], dir_vals[1], check_val)
                 and counter <= max_count):
             cell = Cell(
                 cell.value, cell.row + dir_vals[0], cell.col + dir_vals[1])
             counter += 1
         return counter
 
-    def get_move_heuristics(self, cell):
+    def get_move_values(self, cell):
         # Here I want to return a dictionary with all the relevant information
         # that I'll need in my evaluate utility function
         # for example if the relevant square has possibilities on both endpoints
         # and if it is a win possibility
         # and then defensive information as well of course
-        pdb.set_trace()
+        #pdb.set_trace()
         data = {}
         possible_wins = 0
         right_openings = 0
@@ -301,19 +303,33 @@ class Board(object):
             data[comb_direction] = {
                 'pos_win': False
             }
-            left_adjacent_empties = self.count_sets_of_adjacent_checkers(
-                                cell, comb_direction[0], 6, '_')
-            right_adjacent_empties = self.count_sets_of_adjacent_checkers(
-                                cell, comb_direction[1], 6, '_')
+            left_adjacent_empties = self.get_empties(cell, comb_direction[0])
+            right_adjacent_empties = self.get_empties(cell, comb_direction[1])
             #if self.get_cell_by_change(()) == cell.value:
             # check if cell value at the end of a chain of empties is
             # the same as the cell's value that we're checking
             # and then set a new starting point for checking the endpoint
             # 
+            left_openings = 0
+            right_openings = 0
+            if left_adjacent_empties > 0:
+                pot_cell = self.get_cell_by_change(
+                cell, [elem * (left_adjacent_empties + 1) for elem in comb_direction[0]])
+                if pot_cell and pot_cell.value == cell.value:
+                    left_cell = pot_cell
+                left_openings += left_adjacent_empties
+            if right_adjacent_empties > 0:
+                pot_cell = self.get_cell_by_change(
+                    cell, [elem * (right_adjacent_empties + 1) for elem in comb_direction[1]])
+                if pot_cell and pot_cell.value == cell.value:
+                    right_cell = pot_cell
+                right_openings += right_adjacent_empties
+
+
             left_side = self.get_chain_and_empties(cell, comb_direction[0])
             right_side = self.get_chain_and_empties(cell, comb_direction[1])
-            data[comb_direction]['left_openings'] = left_side[0]
-            data[comb_direction]['right_openings'] = right_side[0]
+            data[comb_direction]['left_openings'] = left_side[0] + left_openings
+            data[comb_direction]['right_openings'] = right_side[0] + right_openings
             data[comb_direction]['chain_length'] = left_side[1] + right_side[1]
             if self.find_possible_wins(cell, comb_direction):
                 possible_wins += 1
@@ -325,16 +341,24 @@ class Board(object):
         right_openings = self.get_chain_and_empties(cell, combination_direction[1])
         return (left_openings[0] + left_openings[1] + right_openings[0] + right_openings[1]) >= 3
 
+    def check_for_holes(self, cell, direction):
+        pass
+
     def get_chain_and_empties(self, cell, direction):
         total_chain = self.count_sets_of_adjacent_checkers(cell, direction)
         change_list = self.translate_direction_to_list(direction)
         if total_chain > 0:
             change_list = [elem * (total_chain + 1) for elem in change_list]
         endpoint = self.get_cell_by_change(cell, change_list)
-        empties = 0
-        if endpoint and endpoint.is_empty():
-            empties = self.count_sets_of_adjacent_checkers(endpoint, direction) + 1
+        if endpoint:
+            empties = self.get_empties(cell, direction)
         return empties, total_chain
+
+    def get_empties(self, cell, direction):
+        empties = self.count_sets_of_adjacent_checkers(cell, direction, 6, '_')
+        if cell.is_empty():
+            empties += 1
+        return empties
 
     def count_one_adjacent(self, cell, direction):
         return self.count_sets_of_adjacent_checkers(cell, direction, 1) == 1
