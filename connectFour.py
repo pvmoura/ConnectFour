@@ -216,9 +216,15 @@ class Board(object):
             return False
 
 
-    def get_cell_by_change(self, cell, change_tuple):
-        row_change = cell.row + change_tuple[0]
-        col_change = cell.col + change_tuple[1]
+    def get_cell_by_change(self, cell, direction, multiplier=1):
+        if type(direction) is str:
+            change_list = self.translate_direction_to_list(direction)
+        else:
+            change_list = direction
+        if multiplier > 1:
+            change_list = [elem * multiplier for elem in change_list]
+        row_change = cell.row + change_list[0]
+        col_change = cell.col + change_list[1]
         if row_change < 0 or col_change < 0:
             return False
         return self.get_cell((row_change, col_change))
@@ -252,6 +258,10 @@ class Board(object):
             direction[1] += tup[1]
         return direction
 
+    def translate_direction_to_opposite(self, direction):
+        dir_list = self.translate_direction_to_list(direction)
+        return [elem * -1 for elem in dir_list]
+
 
     def get_connection(self, cell, direction, check_for_same=True,
                         row_change=0, col_change=0, check_val=None):
@@ -281,7 +291,10 @@ class Board(object):
     def count_sets_of_adjacent_checkers(self, cell, direction, max_count=4,
                                         check_val=None, check_for_same=True):
         counter = 0
-        dir_vals = self.translate_direction_to_list(direction)
+        if type(direction) is str:
+            dir_vals = self.translate_direction_to_list(direction)
+        else:
+            dir_vals = direction
         while ( self.get_connection(cell, False, check_for_same, dir_vals[0], dir_vals[1], check_val)
                 and counter <= max_count):
             cell = Cell(
@@ -295,7 +308,7 @@ class Board(object):
         # for example if the relevant square has possibilities on both endpoints
         # and if it is a win possibility
         # and then defensive information as well of course
-        #pdb.set_trace()
+        pdb.set_trace()
         data = {}
         possible_wins = 0
         right_openings = 0
@@ -303,35 +316,31 @@ class Board(object):
             data[comb_direction] = {
                 'pos_win': False
             }
-            left_adjacent_empties = self.get_empties(cell, comb_direction[0])
-            right_adjacent_empties = self.get_empties(cell, comb_direction[1])
-            #if self.get_cell_by_change(()) == cell.value:
-            # check if cell value at the end of a chain of empties is
-            # the same as the cell's value that we're checking
-            # and then set a new starting point for checking the endpoint
-            # 
-            left_openings = 0
-            right_openings = 0
-            if left_adjacent_empties > 0:
-                pot_cell = self.get_cell_by_change(
-                cell, [elem * (left_adjacent_empties + 1) for elem in comb_direction[0]])
-                if pot_cell and pot_cell.value == cell.value:
-                    left_cell = pot_cell
-                left_openings += left_adjacent_empties
-            if right_adjacent_empties > 0:
-                pot_cell = self.get_cell_by_change(
-                    cell, [elem * (right_adjacent_empties + 1) for elem in comb_direction[1]])
-                if pot_cell and pot_cell.value == cell.value:
-                    right_cell = pot_cell
-                right_openings += right_adjacent_empties
+            left = self.check_for_holes(cell, comb_direction[0])
+            left_holes = 0
+            left_endpoint = cell
+            right_endpoint = cell
+            if left:
+                left_holes = left[0]
+                if len(left) > 1:
+                    left_endpoint = left[1]
+            right = self.check_for_holes(cell, comb_direction[1])
+            right_holes = 0
+            if right:
+                right_holes = right[0]
+                if len(right) > 1:
+                    right_endpoint = right[1]
 
-
-            left_side = self.get_chain_and_empties(cell, comb_direction[0])
-            right_side = self.get_chain_and_empties(cell, comb_direction[1])
-            data[comb_direction]['left_openings'] = left_side[0] + left_openings
-            data[comb_direction]['right_openings'] = right_side[0] + right_openings
+            left_side = self.get_chain_and_empties(left_endpoint, comb_direction[0])
+            right_side = self.get_chain_and_empties(right_endpoint, comb_direction[1])
+            data[comb_direction]['left_holes'] = left_holes
+            data[comb_direction]['right_holes'] = right_holes
+            data[comb_direction]['left_openings'] = left_side[0]
+            data[comb_direction]['right_openings'] = right_side[0]
             data[comb_direction]['chain_length'] = left_side[1] + right_side[1]
-            if self.find_possible_wins(cell, comb_direction):
+            total_possible_chain = (left_side[0] + left_holes + right_side[0] +
+                                    right_holes + left_side[1] + right_side[1])
+            if total_possible_chain >= 3:
                 possible_wins += 1
                 data[comb_direction]['pos_win'] = True
         return data
@@ -342,14 +351,36 @@ class Board(object):
         return (left_openings[0] + left_openings[1] + right_openings[0] + right_openings[1]) >= 3
 
     def check_for_holes(self, cell, direction):
-        pass
+        adjacent_empties = self.get_empties(cell, direction)
+        if adjacent_empties > 0:
+            endpoint = self.get_cell_by_change(cell, direction, adjacent_empties)
+            if endpoint and endpoint.value == cell.value:
+                original_val = endpoint.value
+                connections = 1
+                while (self.count_sets_of_adjacent_checkers(endpoint, dir_list) > 1 or
+                       self.get_empties(endpoint, direction) > 0):
+                    new_connections = self.count_sets_of_adjacent_checkers(endpoint, dir_list)
+                    if endpoint.is_empty():
+                        adjacent_empties += new_connections
+                    else:
+                        connections += new_connections
+                    endpoint = self.get_cell_by_change(endpoint, direction)
+                if endpoint.is_empty():
+                    # have to backtrack to a cell that had the original value
+                    dir_list = self.translate_direction_to_opposite(direction)
+                    backup = self.count_sets_of_adjacent_checkers(endpoint, dir_list)
+                    adjacent_empties -= backup
+                    endpoint = self.get_cell_by_change(endpoint, dir_list, backup)
+                return (adjacent_empties, endpoint, connections)
+            else:
+                return (adjacent_empties, )
+        else:
+            return False
 
     def get_chain_and_empties(self, cell, direction):
         total_chain = self.count_sets_of_adjacent_checkers(cell, direction)
-        change_list = self.translate_direction_to_list(direction)
-        if total_chain > 0:
-            change_list = [elem * (total_chain + 1) for elem in change_list]
-        endpoint = self.get_cell_by_change(cell, change_list)
+        endpoint = self.get_cell_by_change(cell, direction, total_chain)
+        empties = 0
         if endpoint:
             empties = self.get_empties(cell, direction)
         return empties, total_chain
