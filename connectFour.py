@@ -308,36 +308,69 @@ class Board(object):
         # for example if the relevant square has possibilities on both endpoints
         # and if it is a win possibility
         # and then defensive information as well of course
-        pdb.set_trace()
+        # pdb.set_trace()
         data = {}
         possible_wins = 0
         right_openings = 0
+        #self.combination_directions = [('w', 'e')]
         for comb_direction in self.combination_directions:
             data[comb_direction] = {
                 'pos_win': False
             }
-            left = self.check_for_holes(cell, comb_direction[0])
-            left_holes = 0
+            #left = self.check_for_holes(cell, comb_direction[0])
+            left = self.get_empties(cell, comb_direction[0])
+            right = self.get_empties(cell, comb_direction[1])
             left_endpoint = cell
             right_endpoint = cell
-            if left:
-                left_holes = left[0]
-                if len(left) > 1:
-                    left_endpoint = left[1]
-            right = self.check_for_holes(cell, comb_direction[1])
+            # check if there are empties b4 changing endpoints
+            left_holes = 0
             right_holes = 0
-            if right:
-                right_holes = right[0]
-                if len(right) > 1:
-                    right_endpoint = right[1]
-
+            chain = 0
+            while left > 0: 
+                left_holes += left
+                pot_start = self.get_cell_by_change(left_endpoint, comb_direction[0], left + 1)
+                if pot_start and pot_start.value == cell.value:
+                    # pdb.set_trace()
+                    chain += 1
+                    # then these empties are holes.
+                    #   left = self.get_empties(pot_start, comb_direction[0])
+                    check_left = self.check_for_holes(pot_start, comb_direction[0])
+                    left_endpoint = pot_start
+                    if check_left:
+                        if len(check_left) > 1:
+                            left_endpoint = check_left[1]
+                            left_holes += check_left[0]
+                        else:
+                            left = check_left[0]
+                        left = self.get_empties(left_endpoint, comb_direction[0])
+                    else:
+                        left = 0
+                else:
+                    left = 0
+            while right > 0:
+                right_holes += right
+                pot_right = self.get_cell_by_change(right_endpoint, comb_direction[1], right + 1)
+                if pot_right and pot_right.value == cell.value:
+                    chain += 1
+                    check_right = self.check_for_holes(pot_right, comb_direction[1])
+                    if check_right:
+                        if len(check_right) > 1:
+                            right_endpoint = check_right[1]
+                            right_holes += check_right[0]
+                        else:
+                            right_endpoint = pot_right
+                            right = check_right[0]
+                    else:
+                        right = 0
+                else:
+                    right = 0
             left_side = self.get_chain_and_empties(left_endpoint, comb_direction[0])
             right_side = self.get_chain_and_empties(right_endpoint, comb_direction[1])
             data[comb_direction]['left_holes'] = left_holes
             data[comb_direction]['right_holes'] = right_holes
             data[comb_direction]['left_openings'] = left_side[0]
             data[comb_direction]['right_openings'] = right_side[0]
-            data[comb_direction]['chain_length'] = left_side[1] + right_side[1]
+            data[comb_direction]['chain_length'] = left_side[1] + right_side[1] + chain
             total_possible_chain = (left_side[0] + left_holes + right_side[0] +
                                     right_holes + left_side[1] + right_side[1])
             if total_possible_chain >= 3:
@@ -366,7 +399,6 @@ class Board(object):
                         connections += new_connections
                     endpoint = self.get_cell_by_change(endpoint, direction)
                 if endpoint.is_empty():
-                    # have to backtrack to a cell that had the original value
                     dir_list = self.translate_direction_to_opposite(direction)
                     backup = self.count_sets_of_adjacent_checkers(endpoint, dir_list)
                     adjacent_empties -= backup
