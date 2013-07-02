@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+import pdb
+
 class Board(object):
-    def __init__(self, cell_list=None, columns=7, column_size=6):
+    def __init__(self, columns=7, column_size=6):
         self.columns = columns
         self.column_size = column_size
         self.initialize_board()
@@ -12,6 +14,8 @@ class Board(object):
             "w": (0, -1)
         }
         self.combination_directions = [('nw','se'), ('sw', 'ne'), ('w', 'e')]
+        self.directions = ['n', 'e', 's', 'w', 'ne', 'se', 'nw', 'sw']
+
 
     def __iter__(self, ):
         """ Iterates through board list, yielding inner contents
@@ -147,6 +151,39 @@ class Board(object):
 
 class Easy_Board(Board):
 
+    def get_chain_holes_openings(self, cell, direction, holes=0, chain=0, openings=0):
+        """ Take a cell and direction and output the number of holes, the length
+            of the chain and the number of openings at the end of the chain
+        """
+        empties = self.get_empties(cell, direction)
+        if not empties:
+            if self.check_for_specific_val(cell, direction, cell.value):
+                chain_len = self.count_chains_by_cell_val(cell, direction)
+                chain += chain_len
+                new_cell = self.get_cell_by_change(cell, direction, chain_len)
+                if new_cell:
+                    chain, holes, openings = self.get_chain_holes_openings(
+                        new_cell, direction, holes, chain, openings)
+            return chain, holes, openings
+        else:
+            new_cell = self.get_cell_by_change(cell, direction, empties + 1)
+            if new_cell and new_cell.value == cell.value:
+                chain += 1
+                holes += empties
+                chain, holes, openings = self.get_chain_holes_openings(
+                    new_cell, direction, holes, chain, openings)
+            else:
+                openings += empties
+            return chain, holes, openings
+
+    def get_empties(self, cell, direction):
+        if cell:
+            empties = self.count_chains_by_val(cell, direction, '_')
+            if cell.is_empty():
+                empties += 1
+            return empties
+        return False
+
     def get_move_values(self, cell):
         # pdb.set_trace()
         data = {}
@@ -158,109 +195,32 @@ class Easy_Board(Board):
                 'pos_win': False
             }
             #left = self.check_for_holes(cell, comb_direction[0])
-            left = self.get_empties(cell, comb_direction[0])
-            right = self.get_empties(cell, comb_direction[1])
-            left_endpoint = cell
-            right_endpoint = cell
-            # check if there are empties b4 changing endpoints
-            left_holes = 0
-            right_holes = 0
-            chain = 0
-            while left > 0: 
-                left_holes += left
-                pot_start = self.get_cell_by_change(left_endpoint, comb_direction[0], left + 1)
-                if pot_start and pot_start.value == cell.value:
-                    # pdb.set_trace()
-                    chain += 1
-                    # then these empties are holes.
-                    #   left = self.get_empties(pot_start, comb_direction[0])
-                    check_left = self.check_for_holes(pot_start, comb_direction[0])
-                    left_endpoint = pot_start
-                    if check_left:
-                        if len(check_left) > 1:
-                            left_endpoint = check_left[1]
-                            left_holes += check_left[0]
-                        else:
-                            left = check_left[0]
-                        left = self.get_empties(left_endpoint, comb_direction[0])
-                    else:
-                        left = 0
-                else:
-                    left_holes -= left
-                    left = 0
-            while right > 0:
-                right_holes += right
-                pot_right = self.get_cell_by_change(right_endpoint, comb_direction[1], right + 1)
-                if pot_right and pot_right.value == cell.value:
-                    chain += 1
-                    check_right = self.check_for_holes(pot_right, comb_direction[1])
-                    if check_right:
-                        if len(check_right) > 1:
-                            right_endpoint = check_right[1]
-                            right_holes += check_right[0]
-                        else:
-                            right_endpoint = pot_right
-                            right = check_right[0]
-                    else:
-                        right = 0
-                else:
-                    right_holes -= right
-                    right = 0
-            left_side = self.get_chain_and_empties(left_endpoint, comb_direction[0])
-            right_side = self.get_chain_and_empties(right_endpoint, comb_direction[1])
-            data[comb_direction]['left_holes'] = left_holes
-            data[comb_direction]['right_holes'] = right_holes
-            data[comb_direction]['left_openings'] = left_side[0]
-            data[comb_direction]['right_openings'] = right_side[0]
-            data[comb_direction]['chain_length'] = left_side[1] + right_side[1] + chain
-            total_possible_chain = (left_side[0] + left_holes + right_side[0] +
-                                    right_holes + left_side[1] + right_side[1])
+            left_values = self.get_chain_holes_openings(cell, comb_direction[0])
+            right_values = self.get_chain_holes_openings(cell, comb_direction[1])
+            data[comb_direction]['left_holes'] = left_values[1]
+            data[comb_direction]['right_holes'] = right_values[1]
+            data[comb_direction]['left_openings'] = left_values[2]
+            data[comb_direction]['right_openings'] = right_values[2]
+            data[comb_direction]['chain_length'] = left_values[0] + right_values[0]
+            total_possible_chain = sum(left_values) + sum(right_values)
             if total_possible_chain >= 3:
                 possible_wins += 1
                 data[comb_direction]['pos_win'] = True
         return data
 
-    def check_for_holes(self, cell, direction):
-        adjacent_empties = self.get_empties(cell, direction)
-        if adjacent_empties > 0:
-            endpoint = self.get_cell_by_change(cell, direction, adjacent_empties)
-            if endpoint and endpoint.value == cell.value:
-                original_val = endpoint.value
-                connections = 1
-                while (self.count_chains_by_cell_val(endpoint, dir_list) > 1 or
-                       self.get_empties(endpoint, direction) > 0):
-                    new_connections = self.count_chains_by_cell_val(endpoint, dir_list)
-                    if endpoint.is_empty():
-                        adjacent_empties += new_connections
-                    else:
-                        connections += new_connections
-                    endpoint = self.get_cell_by_change(endpoint, direction)
-                if endpoint.is_empty():
-                    dir_list = self.translate_direction_to_opposite(direction)
-                    backup = self.count_chains_by_cell_val(endpoint, dir_list)
-                    adjacent_empties -= backup
-                    endpoint = self.get_cell_by_change(endpoint, dir_list, backup)
-                return (adjacent_empties, endpoint, connections)
-            else:
-                return (adjacent_empties, )
-        else:
-            return False
-
-    def get_chain_and_empties(self, cell, direction):
-        total_chain = self.count_chains_by_cell_val(cell, direction)
-        endpoint = self.get_cell_by_change(cell, direction, total_chain)
-        empties = 0
-        if endpoint:
-            empties = self.get_empties(cell, direction)
-        return empties, total_chain
-
-    def get_empties(self, cell, direction):
-        empties = self.count_chains_by_val(cell, direction, '_')
-        if cell.is_empty():
-            empties += 1
-        return empties
-
 class Hard_Board(Board):
+
+    def __init__(self, columns=7, column_size=6):
+        super(Hard_Board, self).__init__(columns, column_size)
+        self.possible_fours = []
+        for cell in self:
+            if cell.row <= column_size - 4:
+                for direction in self.directions:
+                    new_cell = self.get_cell_by_change(cell, direction, 4)
+                    if new_cell:
+                        self.possible_fours.append(
+                            (cell.get_address(), new_cell.get_address())
+                        )
 
     def evaluate_board(self, ):
         pass
@@ -288,6 +248,9 @@ class Cell(object):
                                                   col=self.col)
     def __str__(self, ):
         return self.value
+
+    def get_address(self, ):
+        return self.row, self.col
 
     def is_empty(self, ):
         return self.value == '_'
