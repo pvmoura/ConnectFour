@@ -7,6 +7,8 @@ import random
 import copy
 import pdb
 
+C_values = 0
+P_values = 0
 
 class HumanPlayer(object):
     def __init__(self, turn=True, name='P', current_board=None):
@@ -52,23 +54,31 @@ class ComputerPlayer(object):
             return self.opponent if player == self.name else self.name
 
         def minimax_recurse(board, player, level=0, move=None):
+            #pdb.set_trace()
             winner = board.check_for_win()
             moves = board.list_possible_moves()
-            if moves == [] or winner is not False or level > 4:
+            global C_values
+            global P_values
+            if player == self.name:
+                C_values += 1
+            else:
+                P_values += 1
+            if moves == [] or winner is not False or level > 3:
                 return self.evaluate_board_utility(board, move), move
             else:
                 new_board = copy.deepcopy(board)
                 result_list = []
-                for move in moves:
-                     new_board.set_cell(move, player)
-                     result_list.append(minimax_recurse(new_board, flip(player), level + 1, move))
-                min_or_max = min if player == self.name else max
+                for m in moves:
+                    new_board.set_cell(m, player)
+                    result_list.append(minimax_recurse(new_board, flip(player), level + 1, m))
+                min_or_max = max if player == self.name else min
                 result = min_or_max(result_list)
                 return result[0], move if move is not None else result[1]
         pos_end = self.check_for_immediate_win(board, board.list_possible_moves())
         if pos_end:
             return pos_end
         return minimax_recurse(board, self.name, 0)[1]
+
 
     def evaluate_board_utility(self, board, move):
         # evaluate the current board position based on a set of heuristics, return a value
@@ -78,10 +88,11 @@ class ComputerPlayer(object):
         multiplier = 1
         if cell.value == self.opponent:
             multiplier = -1
+        utility = 0
         if winner:
-            return 100 * multiplier
+            utility += 100
         if move:
-            output = 0
+            
             for direction in board.combination_directions:
                 # what do I want to do here? I would like to check if each move sets up a possible win
                 # I want to count up the possible wins and apply some sort of weight to that value
@@ -91,10 +102,36 @@ class ComputerPlayer(object):
                 # Check both endpoints. A potential win in one direction weighs less than one in both directions
                 checkers_in_a_row = (board.count_sets_of_adjacent_checkers(cell, direction[0]) +
                                      board.count_sets_of_adjacent_checkers(cell, direction[1]))
+                board_data = board.get_move_values(cell)
+                pos_wins = 0
+                threes = 0
+                twos = 0
+                wide_opens = 0
+                closed_ends = 0
+                half_open = 0
+                total_possibilities = 0
+                for key, v in board_data.items():
+                    if v['pos_win']:
+                        pos_wins += 1
+                    if v['chain_length'] >= 2:
+                        threes += 1
+                    elif v['chain_length'] > 0:
+                        twos += 1
+                    if v['right_openings'] > 0 and v['left_openings'] > 0:
+                        wide_opens += 1
+                    elif v['right_openings'] == 0 and v['left_openings'] == 0:
+                        closed_ends += 1
+                    else:
+                        half_open += 1
+                    total_possibilities += v['right_openings'] + v['left_openings'] + 5 * v['chain_length']
 
-                output += checkers_in_a_row
+                utility += (pos_wins * 5 + threes * 2.5 + twos * 2 + total_possibilities * 3 + 
+                           wide_opens * 2 + closed_ends * 0.5 + half_open)
+                #utility += pos_wins
+                utility += cell.center_weight * 100
 
-            return output * multiplier
+            #print utility * multiplier
+            return utility * multiplier
 
     def test_possible_moves(self, board, possible_moves, player_name,
                             direction_list, check_value):
@@ -140,8 +177,14 @@ class ConnectFour(object):
         if not human:
             players[1] = ComputerPlayer()
         self.current_player = players[0]
+        global C_values
+        global P_values
         while not self.board.check_for_win():
             print self.board
+            print C_values, P_values
+            C_values = 0
+            P_values = 0
+            
             move = self.read_player_move()
             if move in ('q', 'Q'):
                 sys.exit(0)
@@ -346,6 +389,7 @@ class Board(object):
                     else:
                         left = 0
                 else:
+                    left_holes -= left
                     left = 0
             while right > 0:
                 right_holes += right
@@ -363,6 +407,7 @@ class Board(object):
                     else:
                         right = 0
                 else:
+                    right_holes -= right
                     right = 0
             left_side = self.get_chain_and_empties(left_endpoint, comb_direction[0])
             right_side = self.get_chain_and_empties(right_endpoint, comb_direction[1])
