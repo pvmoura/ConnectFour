@@ -27,35 +27,42 @@ class Board(object):
                 " ".join([str(i) for i in range(1, self.columns + 1)]) + 
                 "\n" +
                 '\n'.join(' '.join(map(str, row)) for row in reversed(self.board)) + 
-                "\n"
-                )
+                "\n")
 
     def initialize_board(self, place_holder='_'):
+        """ Initialize list of cell lists for board representation
+        """
         self.board = [[ Cell('_', i, j, self.columns - 1, self.column_size - 1)
                 for j in range(self.columns)]
                 for i in range(self.column_size)]
 
     def get_cell(self, position_tuple):
+        """ Get a cell object from board based on a position tuple
+        """
         try:
             return self.board[position_tuple[0]][position_tuple[1]]
         except IndexError:
-            return False
+            return None
 
 
     def get_cell_by_change(self, cell, direction, multiplier=1):
+        """ Get a cell object from the board going in a specific direction
+            and a certain number of cells away
+        """
         if type(direction) is str:
-            change_list = self.translate_direction_to_list(direction)
-        else:
-            change_list = direction
+            direction = self.translate_direction_to_list(direction)
         if multiplier > 1:
-            change_list = [elem * multiplier for elem in change_list]
-        row_change = cell.row + change_list[0]
-        col_change = cell.col + change_list[1]
+            direction = [elem * multiplier for elem in direction]
+        row_change = cell.row + direction[0]
+        col_change = cell.col + direction[1]
         if row_change < 0 or col_change < 0:
-            return False
+            return None
         return self.get_cell((row_change, col_change))
 
     def set_cell(self, position_tuple, player_name, overwrite=False):
+        """ Set a cell value with player_name at position_tuple
+            Only writes to empty cells, unless overwrite=True
+        """
         try:
             cell = self.board[position_tuple[0]][position_tuple[1]]
             if cell.is_empty() or overwrite:
@@ -64,9 +71,14 @@ class Board(object):
             return False
 
     def search_for_win(self, cell, direction):
+        """ Counts if there are 3 adjacent checkers in a row
+            plus the given cell makes a win in specified direction
+        """
         return self.count_sets_of_adjacent_checkers(cell, direction, 3) == 3
 
     def check_for_win(self, ):
+        """ Calls search_for_win in all possible win directions
+        """
         for cell in self:
             if not cell.is_empty():
                 if (self.search_for_win(cell, "e") or
@@ -77,6 +89,9 @@ class Board(object):
         return False
 
     def translate_direction_to_list(self, direction):
+        """ Takes a direction string and translates it into a list based on
+            self.direction_tuples
+        """
         tuple_list = [self.direction_tuples[direction] for direction in list(direction)]
         direction = [0, 0]
         for tup in tuple_list:
@@ -85,12 +100,32 @@ class Board(object):
         return direction
 
     def translate_direction_to_opposite(self, direction):
+        """ Takes a direction string and translates to opposite values
+            based on self.direction_tuples
+        """
         dir_list = self.translate_direction_to_list(direction)
         return [elem * -1 for elem in dir_list]
 
+    def check_adjacent_cell_value(self, cell, direction, check_for_nonempty=False):
+        """ Checks if adjacent cell value is the same as a given cell's
+            or if the given cell is empty this will check for nonempties
+            in the given direction 
+        """
+        new_cell = self.get_cell_by_change(cell, direction)
+        return (new_cell and ((not cell.is_empty() and new_cell.value == cell.value) or
+               (check_for_nonempty and cell.is_empty() and not new_cell.is_empty())))
+
+    def check_for_specific_val(self, cell, direction, check_val=None):
+        """ Check if there is a specific value in a given direction from
+            a given cell
+        """
+        new_cell = self.get_cell_by_change(cell, direction)
+        return new_cell and check_val == new_cell.value
 
     def get_connection(self, cell, direction, check_for_same=True,
                         row_change=0, col_change=0, check_val=None):
+        """ Given a cell and direction checks if adjacent cell has same value
+        """
         if direction:
             dir_vals = self.translate_direction_to_list(direction)
             row_position = dir_vals[0] + cell.row
@@ -259,8 +294,8 @@ class Board(object):
 
     def list_possible_moves(self, ):
         return [(cell.row, cell.col) for cell in self if cell.is_empty() and
-                (self.get_connection(cell, "s", False) is None or
-                 self.get_connection(cell, "s", False) is True)]
+                (self.get_cell_by_change(cell, "s", 1) is None or
+                 self.check_adjacent_cell_value(cell, "s", True) is True)]
 
 
 class Cell(object):
@@ -268,7 +303,6 @@ class Cell(object):
         self.value = value
         self.row = row_index
         self.col = column_index
-        self.connections = {}
         self.center_weight = (self.distance_from_col_edge(column_terminal) +
                               self.distance_from_row_edge(row_terminal)) * .1
         self.on_edge = self.is_edge(row_terminal, column_terminal)

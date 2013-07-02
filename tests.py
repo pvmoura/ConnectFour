@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from connectFour import Board
+from board import Board
 
 def checkWinners(board, addDistractions=False, vertical=False, gamePiece='P'):
     """ Generates vertical and horizontal winning boards and checks if the winner checkers work"""
