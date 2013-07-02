@@ -14,26 +14,21 @@ class Board(object):
         self.combination_directions = [('nw','se'), ('sw', 'ne'), ('w', 'e')]
 
     def __iter__(self, ):
+        """ Iterates through board list, yielding inner contents
         """
-        """
-        for row_index, row in enumerate(self.board):
-            for col_index, col in enumerate(row):
-                #yield Cell(col, row_index, col_index,
-                        #self.columns - 1, self.column_size - 1)
+        for row in self.board:
+            for col in row:
                 yield col
 
     def __str__(self, ):
-        columnNumbers = ""
-        for i in range(self.columns + 1):
-            if i != 0:
-                columnNumbers += str(i) + " "
-        output = "\n" + columnNumbers + "\n"
-        for row in reversed(self.board):
-            rowString = ""
-            for elem in row:
-                rowString += str(elem.value) + " "
-            output += rowString + "\n"
-        return output
+        """ Pretty print the board
+        """
+        return ("\n" +
+                " ".join([str(i) for i in range(1, self.columns + 1)]) + 
+                "\n" +
+                '\n'.join(' '.join(map(str, row)) for row in reversed(self.board)) + 
+                "\n"
+                )
 
     def initialize_board(self, place_holder='_'):
         self.board = [[ Cell('_', i, j, self.columns - 1, self.column_size - 1)
@@ -279,10 +274,12 @@ class Cell(object):
         self.on_edge = self.is_edge(row_terminal, column_terminal)
         self.on_corner = self.is_corner(row_terminal, column_terminal)
 
-    def __str__(self, ):
+    def __repr__(self, ):
         return "{value} at ({row}, {col})".format(value=self.value,
                                                   row=self.row,
                                                   col=self.col)
+    def __str__(self, ):
+        return self.value
 
     def is_empty(self, ):
         return self.value == '_'
