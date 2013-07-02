@@ -74,7 +74,7 @@ class Board(object):
         """ Counts if there are 3 adjacent checkers in a row
             plus the given cell makes a win in specified direction
         """
-        return self.count_sets_of_adjacent_checkers(cell, direction, 3) == 3
+        return self.count_chains_by_cell_val(cell, direction, 3) == 3
 
     def check_for_win(self, ):
         """ Calls search_for_win in all possible win directions
@@ -122,13 +122,20 @@ class Board(object):
         new_cell = self.get_cell_by_change(cell, direction)
         return new_cell and check_val == new_cell.value
 
-    def count_sets_of_adjacent_checkers(self, cell, direction, max_count=4,
+    def count_chains_by_cell_val(self, cell, direction, max_count=4,
                                         check_val=None, check_for_nonempty=False):
         """ Counts chains of checkers in a specific direction
         """
         counter = 0
         while (self.check_adjacent_cell_value(cell, direction, check_for_nonempty)
                and counter <= max_count):
+            cell = self.get_cell_by_change(cell, direction)
+            counter += 1
+        return counter
+
+    def count_chains_by_val(self, cell, direction, val=None):
+        counter = 0
+        while (self.check_for_specific_val(cell, direction, val)):
             cell = self.get_cell_by_change(cell, direction)
             counter += 1
         return counter
@@ -141,11 +148,6 @@ class Board(object):
 class Easy_Board(Board):
 
     def get_move_values(self, cell):
-        # Here I want to return a dictionary with all the relevant information
-        # that I'll need in my evaluate utility function
-        # for example if the relevant square has possibilities on both endpoints
-        # and if it is a win possibility
-        # and then defensive information as well of course
         # pdb.set_trace()
         data = {}
         possible_wins = 0
@@ -218,11 +220,6 @@ class Easy_Board(Board):
                 data[comb_direction]['pos_win'] = True
         return data
 
-    def find_possible_wins(self, cell, combination_direction):
-        left_openings = self.get_chain_and_empties(cell, combination_direction[0])
-        right_openings = self.get_chain_and_empties(cell, combination_direction[1])
-        return (left_openings[0] + left_openings[1] + right_openings[0] + right_openings[1]) >= 3
-
     def check_for_holes(self, cell, direction):
         adjacent_empties = self.get_empties(cell, direction)
         if adjacent_empties > 0:
@@ -230,9 +227,9 @@ class Easy_Board(Board):
             if endpoint and endpoint.value == cell.value:
                 original_val = endpoint.value
                 connections = 1
-                while (self.count_sets_of_adjacent_checkers(endpoint, dir_list) > 1 or
+                while (self.count_chains_by_cell_val(endpoint, dir_list) > 1 or
                        self.get_empties(endpoint, direction) > 0):
-                    new_connections = self.count_sets_of_adjacent_checkers(endpoint, dir_list)
+                    new_connections = self.count_chains_by_cell_val(endpoint, dir_list)
                     if endpoint.is_empty():
                         adjacent_empties += new_connections
                     else:
@@ -240,7 +237,7 @@ class Easy_Board(Board):
                     endpoint = self.get_cell_by_change(endpoint, direction)
                 if endpoint.is_empty():
                     dir_list = self.translate_direction_to_opposite(direction)
-                    backup = self.count_sets_of_adjacent_checkers(endpoint, dir_list)
+                    backup = self.count_chains_by_cell_val(endpoint, dir_list)
                     adjacent_empties -= backup
                     endpoint = self.get_cell_by_change(endpoint, dir_list, backup)
                 return (adjacent_empties, endpoint, connections)
@@ -250,7 +247,7 @@ class Easy_Board(Board):
             return False
 
     def get_chain_and_empties(self, cell, direction):
-        total_chain = self.count_sets_of_adjacent_checkers(cell, direction)
+        total_chain = self.count_chains_by_cell_val(cell, direction)
         endpoint = self.get_cell_by_change(cell, direction, total_chain)
         empties = 0
         if endpoint:
@@ -258,7 +255,7 @@ class Easy_Board(Board):
         return empties, total_chain
 
     def get_empties(self, cell, direction):
-        empties = self.count_sets_of_adjacent_checkers(cell, direction, 6, '_')
+        empties = self.count_chains_by_val(cell, direction, '_')
         if cell.is_empty():
             empties += 1
         return empties
@@ -269,10 +266,10 @@ class Hard_Board(Board):
         pass
 
     def count_one_adjacent(self, cell, direction):
-        return self.count_sets_of_adjacent_checkers(cell, direction, 1) == 1
+        return self.count_chains_by_cell_val(cell, direction, 1) == 1
 
     def count_two_adjacent(self, cell, direction):
-        return self.count_sets_of_adjacent_checkers(cell, direction, 2) == 2
+        return self.count_chains_by_cell_val(cell, direction, 2) == 2
 
 
 class Cell(object):

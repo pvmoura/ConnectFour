@@ -87,8 +87,8 @@ class ComputerPlayer(object):
                 # Let's figure out how to count the possible wins
                 # To count the possible wins, first count the number in a row. Then, check the endpoints for empty cells
                 # Check both endpoints. A potential win in one direction weighs less than one in both directions
-                checkers_in_a_row = (board.count_sets_of_adjacent_checkers(cell, direction[0]) +
-                                     board.count_sets_of_adjacent_checkers(cell, direction[1]))
+                checkers_in_a_row = (board.count_chains_by_cell_val(cell, direction[0]) +
+                                     board.count_chains_by_cell_val(cell, direction[1]))
                 board_data = board.get_move_values(cell)
                 pos_wins = 0
                 threes = 0
@@ -126,8 +126,8 @@ class ComputerPlayer(object):
             cell = board.get_cell(move)
             for direction in direction_list:
                 cell.value = player_name
-                if (board.count_sets_of_adjacent_checkers(cell, direction[0]) + 
-                    board.count_sets_of_adjacent_checkers(cell, direction[1])) == check_value:
+                if (board.count_chains_by_cell_val(cell, direction[0]) + 
+                    board.count_chains_by_cell_val(cell, direction[1])) == check_value:
                     cell.value = '_'
                     return move
                 cell.value = '_'
