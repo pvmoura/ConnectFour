@@ -30,7 +30,7 @@ class Board(object):
                 "\n")
 
     def initialize_board(self, place_holder='_'):
-        """ Initialize list of cell lists for board representation
+        """ Initializes list of cell lists for board representation
         """
         self.board = [[ Cell('_', i, j, self.columns - 1, self.column_size - 1)
                 for j in range(self.columns)]
@@ -122,46 +122,23 @@ class Board(object):
         new_cell = self.get_cell_by_change(cell, direction)
         return new_cell and check_val == new_cell.value
 
-    def get_connection(self, cell, direction, check_for_same=True,
-                        row_change=0, col_change=0, check_val=None):
-        """ Given a cell and direction checks if adjacent cell has same value
-        """
-        if direction:
-            dir_vals = self.translate_direction_to_list(direction)
-            row_position = dir_vals[0] + cell.row
-            column_position = dir_vals[1] + cell.col
-        else:
-            row_position = row_change + cell.row
-            column_position = col_change + cell.col
-        value = cell.value
-        if check_val:
-            value = check_val
-        if (row_position >= 0 and column_position >= 0 and
-            row_position < self.column_size and column_position < self.columns):
-            check_cell = self.get_cell((row_position, column_position))
-            if check_for_same:
-                return value == check_cell.value
-            elif check_val:
-                return (value == self.check_cell.value or check_cell.is_empty())
-            else:
-                return (not self.board[row_position][column_position].is_empty()
-                        and cell.is_empty())
-        else:
-            return None
-
     def count_sets_of_adjacent_checkers(self, cell, direction, max_count=4,
-                                        check_val=None, check_for_same=True):
+                                        check_val=None, check_for_nonempty=False):
+        """ Counts chains of checkers in a specific direction
+        """
         counter = 0
-        if type(direction) is str:
-            dir_vals = self.translate_direction_to_list(direction)
-        else:
-            dir_vals = direction
-        while ( self.get_connection(cell, False, check_for_same, dir_vals[0], dir_vals[1], check_val)
-                and counter <= max_count):
-            cell = Cell(
-                cell.value, cell.row + dir_vals[0], cell.col + dir_vals[1])
+        while (self.check_adjacent_cell_value(cell, direction, check_for_nonempty)
+               and counter <= max_count):
+            cell = self.get_cell_by_change(cell, direction)
             counter += 1
         return counter
+
+    def list_possible_moves(self, ):
+        return [(cell.row, cell.col) for cell in self if cell.is_empty() and
+                (self.get_cell_by_change(cell, "s", 1) is None or
+                 self.check_adjacent_cell_value(cell, "s", True) is True)]
+
+class Easy_Board(Board):
 
     def get_move_values(self, cell):
         # Here I want to return a dictionary with all the relevant information
@@ -286,16 +263,16 @@ class Board(object):
             empties += 1
         return empties
 
+class Hard_Board(Board):
+
+    def evaluate_board(self, ):
+        pass
+
     def count_one_adjacent(self, cell, direction):
         return self.count_sets_of_adjacent_checkers(cell, direction, 1) == 1
 
     def count_two_adjacent(self, cell, direction):
         return self.count_sets_of_adjacent_checkers(cell, direction, 2) == 2
-
-    def list_possible_moves(self, ):
-        return [(cell.row, cell.col) for cell in self if cell.is_empty() and
-                (self.get_cell_by_change(cell, "s", 1) is None or
-                 self.check_adjacent_cell_value(cell, "s", True) is True)]
 
 
 class Cell(object):
