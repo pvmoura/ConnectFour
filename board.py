@@ -196,7 +196,6 @@ class Easy_Board(Board):
                 'pos_win': False,
                 'both_sides_open': False
             }
-            #left = self.check_for_holes(cell, comb_direction[0])
             left_values = self.get_chain_holes_openings(cell, comb_direction[0])
             right_values = self.get_chain_holes_openings(cell, comb_direction[1])
             if left_values[2] > 0 and right_values[2] > 0:
@@ -222,8 +221,9 @@ class Hard_Board(Board):
                             (cell.get_address(), new_cell.get_address())
                         )
 
-    def evaluate_board(self, ):
-        pass
+    def count_threes(self, player):
+        for coord in self.possible_fours:
+            if coord[0] 
 
     def count_one_adjacent(self, cell, direction):
         return self.count_chains_by_cell_val(cell, direction, 1) == 1

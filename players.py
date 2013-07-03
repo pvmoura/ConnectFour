@@ -7,7 +7,7 @@ import copy
 import pdb
 
 class HumanPlayer(object):
-    def __init__(self, turn=True, name='P'):
+    def __init__(self, turn=True, name='X'):
         self.name = name
         self.turn = turn
 
@@ -24,22 +24,46 @@ class HumanPlayer(object):
                 return move
 
 class ComputerPlayer(object):
-    def __init__(self, turn=False, name='C',  opponent_name='P', current_board=None):
+    def __init__(self, turn=False, name='O',  opponent_name='X', current_board=None):
         self.name = name
         self.turn = turn
         self.current_board = current_board
         self.opponent = opponent_name
+    
+    def move(self, board):
+        possible_moves = board.list_possible_moves()
+        pos_end = self.check_for_immediate_win(board, possible_moves)
+        if pos_end:
+            return pos_end
+        make_move = self.move_mini if self.level == 'hard' else self.move_easy
+        return make_move(board, possible_moves)
 
-    def move_test(self, board):
+    def random_move(self, board, possible_moves):
         # add a move function for the computer
-        self.current_board = board
-        possible_moves = self.current_board.list_possible_moves()
-        move = self.check_for_immediate_win(board, possible_moves)
-        if move:
-            return move
         return possible_moves[random.randint(0, len(possible_moves) - 1)][1] + 1
 
-    def move_mini(self, board):
+    def test_possible_moves(self, board, possible_moves, player_name, check_value):
+        combination_directions = board.combination_directions + [('s', 'n')]
+        for move in possible_moves:
+            cell = board.get_cell(move)
+            for direction in combination_directions:
+                board.set_cell(move, player_name)
+                if (board.count_chains_by_cell_val(cell, direction[0]) + 
+                    board.count_chains_by_cell_val(cell, direction[1])) == check_value:
+                    board.set_cell_to_empty(move)
+                    return move
+                board.set_cell_to_empty(move)
+        return False
+
+    def check_for_immediate_win(self, board, possible_moves):
+        return_value = self.test_possible_moves(board, possible_moves, self.name, 3)
+        if not return_value:
+            return_value = self.test_possible_moves(board, possible_moves, self.opponent, 3)
+        return return_value
+
+    def move_mini(self, board, possible_moves):
+        """ Penne, a little too al dente.
+        """
         # what are the steps to get this to work?
         # 1. make a copy of the board. 2. move to the desired place. 3. check if you've reached a terminal state on board.
         # 4. if you have reached terminal call an evaluation function. 5. else keep recursing down 6. return a move
@@ -61,67 +85,11 @@ class ComputerPlayer(object):
                 min_or_max = max if player == self.name else min
                 result = min_or_max(result_list)
                 return result[0], move if move is not None else result[1]
-        pos_end = self.check_for_immediate_win(board, board.list_possible_moves())
-        if pos_end:
-            return pos_end
         return minimax_recurse(board, self.name, 0)[1]
 
-    def move(self, board):
-        return self.move_easy(board)
-
-    def return_naive_utility(self, board, possible_moves, player):
-        output_list = []
-        for move in possible_moves:
-            move_utility = 0
-            cell = board.get_cell(move)
-            board.set_cell(move, player)
-            player_data_dict = board.get_move_values(cell)
-            for key, val in player_data_dict.items():
-                openings_multiplier = 1.5
-                if val['both_sides_open']:
-                    openings_multiplier = 2
-                chain_multiplier = 3
-                if val['total_holes'] > 0:
-                    chain_multiplier = 2.5
-                if val['total_chain'] == 2 and val['both_sides_open']:
-                    move_utility += 100
-                move_utility +=  val['total_openings'] * openings_multiplier + \
-                            val['total_chain'] * chain_multiplier + cell.center_weight
-            output_list.append((move, move_utility))
-            board.set_cell_to_empty(move)
-        print output_list
-        return output_list
-
-    def move_easy(self, board):
-        possible_moves = board.list_possible_moves()
-        pos_end = self.check_for_immediate_win(board, possible_moves)
-        if pos_end:
-            return pos_end
-        evaluating_moves = []
-        new_board = copy.deepcopy(board)
-        comp_move_utilities = self.return_naive_utility(
-            new_board, possible_moves, self.name)
-        opp_move_utilities = self.return_naive_utility(
-            new_board, possible_moves, self.opponent)
-        evaluating_moves = comp_move_utilities + opp_move_utilities
-        max_value = evaluating_moves.pop(
-            evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
-        new_board.set_cell(max_value[0], self.name)
-        while self.test_possible_moves(new_board, new_board.list_possible_moves(), self.opponent, 3):
-            if len(evaluating_moves) == 0:
-                break
-            new_board.set_cell_to_empty(max_value[0])
-            max_value = evaluating_moves.pop(
-                evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
-            new_board.set_cell(max_value[0], self.opponent)
-        #new_board.set_cell(max_value[0], 'P')
-        #while (self.check_for_immediate_win(new_board, new_board.list_possible_moves())):
-        #    new_board.set_cell(max_value[0], '_')
-        #    max_value = evaluating_moves.pop(evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
-        #    new_board.set_cell(max_value[0], 'P')
-        return max_value[0]
-
     def evaluate_board_utility(self, board, move):
+        """ Cold, uncooked spaghetti. Please ignore
+        """
         # evaluate the current board position based on a set of heuristics, return a value
         #pdb.set_trace()
         winner = board.check_for_win()
@@ -174,22 +142,46 @@ class ComputerPlayer(object):
             #print utility * multiplier
             return utility * multiplier
 
-    def test_possible_moves(self, board, possible_moves, player_name, check_value):
-        combination_directions = board.combination_directions + [('s', 'n')]
-        for move in possible_moves:
-            cell = board.get_cell(move)
-            for direction in combination_directions:
-                cell.value = player_name
-                if (board.count_chains_by_cell_val(cell, direction[0]) + 
-                    board.count_chains_by_cell_val(cell, direction[1])) == check_value:
-                    cell.value = '_'
-                    return move
-                cell.value = '_'
-        return False
+    def move_easy(self, board, possible_moves):
+        evaluating_moves = []
+        new_board = copy.deepcopy(board)
+        comp_move_utilities = self.return_naive_utility(
+            new_board, possible_moves, self.name)
+        opp_move_utilities = self.return_naive_utility(
+            new_board, possible_moves, self.opponent)
+        evaluating_moves = comp_move_utilities + opp_move_utilities
+        max_value = evaluating_moves.pop(
+            evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
+        new_board.set_cell(max_value[0], self.name)
+        while self.test_possible_moves(
+            new_board, new_board.list_possible_moves(), self.opponent, 3) is not False:
+            if len(evaluating_moves) == 0:
+                break
+            new_board.set_cell_to_empty(max_value[0])
+            max_value = evaluating_moves.pop(
+                evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
+            new_board.set_cell(max_value[0], self.opponent)
+        return max_value[0]
 
-    def check_for_immediate_win(self, board, possible_moves):
-        return_value = self.test_possible_moves(board, possible_moves, self.name, 3)
-        if not return_value:
-            return_value = self.test_possible_moves(board, possible_moves, self.opponent, 3)
-        return return_value
+    def return_naive_utility(self, board, possible_moves, player):
+        output_list = []
+        for move in possible_moves:
+            move_utility = 0
+            cell = board.get_cell(move)
+            board.set_cell(move, player)
+            player_data_dict = board.get_move_values(cell)
+            for key, val in player_data_dict.items():
+                openings_multiplier = 1.5
+                if val['both_sides_open']:
+                    openings_multiplier = 2
+                chain_multiplier = 3
+                if val['total_holes'] > 0:
+                    chain_multiplier = 2.5
+                if val['total_chain'] == 2 and val['both_sides_open']:
+                    move_utility += 100
+                move_utility +=  val['total_openings'] * openings_multiplier + \
+                            val['total_chain'] * chain_multiplier + cell.center_weight
+            output_list.append((move, move_utility))
+            board.set_cell_to_empty(move)
+        return output_list
 
