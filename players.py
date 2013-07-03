@@ -28,6 +28,7 @@ class ComputerPlayer(object):
         self.name = name
         self.turn = turn
         self.opponent = opponent_name
+        self.level = 'easy'
     
     def move(self, board):
         """ Computer move

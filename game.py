@@ -7,9 +7,9 @@ from players import HumanPlayer, ComputerPlayer
 
 class ConnectFour(object):
     def __init__(self, cell_list=None, columns=7, column_size=6, human=False, level='easy'):
-        self.adversaries = [HumanPlayer(False), HumanPlayer(False, 'Q')]
+        self.adversaries = [HumanPlayer(), HumanPlayer(False, 'Q')]
         if not human:
-            self.adversaries[1] = ComputerPlayer(True)
+            self.adversaries[1] = ComputerPlayer()
         if level == 'easy':
             self.board = Easy_Board()
         elif level == 'hard':
@@ -30,7 +30,8 @@ class ConnectFour(object):
         return move
 
     def play(self, ):
-        self.current_player = self.adversaries[1]
+        self.current_player = [player for player in self.adversaries
+                               if player.turn is True][0]
         while not self.board.check_for_win():
             print self.board
             move = self.read_player_move()
