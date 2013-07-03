@@ -69,18 +69,13 @@ class ComputerPlayer(object):
     def move(self, board):
         return self.move_easy(board)
 
-    def move_easy(self, board):
-        possible_moves = board.list_possible_moves()
-        pos_end = self.check_for_immediate_win(board, possible_moves)
-        if pos_end:
-            return pos_end
-        evaluating_moves = []
-        new_board = copy.deepcopy(board)
+    def return_naive_utility(self, board, possible_moves, player):
+        output_list = []
         for move in possible_moves:
-            cell = new_board.get_cell(move)
-            new_board.set_cell(move, self.name)
-            player_data_dict = new_board.get_move_values(cell)
-            player_utility = 0
+            move_utility = 0
+            cell = board.get_cell(move)
+            board.set_cell(move, player)
+            player_data_dict = board.get_move_values(cell)
             for key, val in player_data_dict.items():
                 openings_multiplier = 1.5
                 if val['both_sides_open']:
@@ -89,34 +84,41 @@ class ComputerPlayer(object):
                 if val['total_holes'] > 0:
                     chain_multiplier = 2.5
                 if val['total_chain'] == 2 and val['both_sides_open']:
-                    player_utility += 10
-                player_utility +=  val['total_openings'] * openings_multiplier + \
-                            val['total_chain'] * chain_multiplier
-            evaluating_moves.append((move, player_utility))
-            new_board.set_cell(move, self.opponent, True)
-            opponent_data_dict = new_board.get_move_values(cell)
-            comp_utility = 0
-            for key, val in opponent_data_dict.items():
-                openings_multiplier = 1.5
-                if val['both_sides_open']:
-                    openings_multiplier = 2
-                chain_multiplier = 3
-                if val['total_holes'] > 0:
-                    chain_multiplier = 2.5
-                if val['total_chain'] == 2 and val['both_sides_open']:
-                    comp_utility += 10
-                comp_utility +=  val['total_openings'] * openings_multiplier + \
-                            val['total_chain'] * chain_multiplier
-            evaluating_moves.append((move, comp_utility))
-            new_board.set_cell(move, '_', True)
-        max_value = evaluating_moves.pop(evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
-        new_board.set_cell(max_value[0], 'P')
-        while (self.check_for_immediate_win(new_board, new_board.list_possible_moves())):
-            print max_value[0]
-            print evaluating_moves
-            new_board.set_cell(max_value[0], '_')
-            max_value = evaluating_moves.pop(evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
-            new_board.set_cell(max_value[0], 'P')
+                    move_utility += 100
+                move_utility +=  val['total_openings'] * openings_multiplier + \
+                            val['total_chain'] * chain_multiplier + cell.center_weight
+            output_list.append((move, move_utility))
+            board.set_cell_to_empty(move)
+        print output_list
+        return output_list
+
+    def move_easy(self, board):
+        possible_moves = board.list_possible_moves()
+        pos_end = self.check_for_immediate_win(board, possible_moves)
+        if pos_end:
+            return pos_end
+        evaluating_moves = []
+        new_board = copy.deepcopy(board)
+        comp_move_utilities = self.return_naive_utility(
+            new_board, possible_moves, self.name)
+        opp_move_utilities = self.return_naive_utility(
+            new_board, possible_moves, self.opponent)
+        evaluating_moves = comp_move_utilities + opp_move_utilities
+        max_value = evaluating_moves.pop(
+            evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
+        new_board.set_cell(max_value[0], self.name)
+        while self.test_possible_moves(new_board, new_board.list_possible_moves(), self.opponent, 3):
+            if len(evaluating_moves) == 0:
+                break
+            new_board.set_cell_to_empty(max_value[0])
+            max_value = evaluating_moves.pop(
+                evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
+            new_board.set_cell(max_value[0], self.opponent)
+        #new_board.set_cell(max_value[0], 'P')
+        #while (self.check_for_immediate_win(new_board, new_board.list_possible_moves())):
+        #    new_board.set_cell(max_value[0], '_')
+        #    max_value = evaluating_moves.pop(evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
+        #    new_board.set_cell(max_value[0], 'P')
         return max_value[0]
 
     def evaluate_board_utility(self, board, move):
@@ -172,11 +174,11 @@ class ComputerPlayer(object):
             #print utility * multiplier
             return utility * multiplier
 
-    def test_possible_moves(self, board, possible_moves, player_name,
-                            direction_list, check_value):
+    def test_possible_moves(self, board, possible_moves, player_name, check_value):
+        combination_directions = board.combination_directions + [('s', 'n')]
         for move in possible_moves:
             cell = board.get_cell(move)
-            for direction in direction_list:
+            for direction in combination_directions:
                 cell.value = player_name
                 if (board.count_chains_by_cell_val(cell, direction[0]) + 
                     board.count_chains_by_cell_val(cell, direction[1])) == check_value:
@@ -186,11 +188,8 @@ class ComputerPlayer(object):
         return False
 
     def check_for_immediate_win(self, board, possible_moves):
-        combination_directions = [('nw','se'), ('ne', 'sw'), ('e', 'w'), ('s', 'n')]
-        return_value = self.test_possible_moves(board, possible_moves,
-                                            self.name, combination_directions, 3)
+        return_value = self.test_possible_moves(board, possible_moves, self.name, 3)
         if not return_value:
-            return_value = self.test_possible_moves(board, possible_moves,
-                                                self.opponent, combination_directions, 3)
+            return_value = self.test_possible_moves(board, possible_moves, self.opponent, 3)
         return return_value
 

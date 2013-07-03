@@ -48,7 +48,6 @@ class Board(object):
         except IndexError:
             return None
 
-
     def get_cell_by_change(self, cell, direction, multiplier=1):
         """ Get a cell object from the board going in a specific direction
             and a certain number of cells away
@@ -73,6 +72,9 @@ class Board(object):
                 cell.value = player_name
         except IndexError:
             return False
+
+    def set_cell_to_empty(self, pos_tuple):
+        self.set_cell(pos_tuple, '_', True)
 
     def search_for_win(self, cell, direction):
         """ Counts if there are 3 adjacent checkers in a row
@@ -236,7 +238,7 @@ class Cell(object):
         self.row = row_index
         self.col = column_index
         self.center_weight = (self.distance_from_col_edge(column_terminal) +
-                              self.distance_from_row_edge(row_terminal)) * .1
+                              self.distance_from_row_edge(row_terminal))
         self.on_edge = self.is_edge(row_terminal, column_terminal)
         self.on_corner = self.is_corner(row_terminal, column_terminal)
 
