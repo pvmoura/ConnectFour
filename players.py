@@ -27,10 +27,11 @@ class ComputerPlayer(object):
     def __init__(self, turn=False, name='O',  opponent_name='X', current_board=None):
         self.name = name
         self.turn = turn
-        self.current_board = current_board
         self.opponent = opponent_name
     
     def move(self, board):
+        """ Computer move
+        """
         possible_moves = board.list_possible_moves()
         pos_end = self.check_for_immediate_win(board, possible_moves)
         if pos_end:
@@ -39,10 +40,14 @@ class ComputerPlayer(object):
         return make_move(board, possible_moves)
 
     def random_move(self, board, possible_moves):
+        """ Generate a random move
+        """
         # add a move function for the computer
         return possible_moves[random.randint(0, len(possible_moves) - 1)][1] + 1
 
     def test_possible_moves(self, board, possible_moves, player_name, check_value):
+        """ Test the possible moves for win states
+        """
         combination_directions = board.combination_directions + [('s', 'n')]
         for move in possible_moves:
             cell = board.get_cell(move)
@@ -56,6 +61,8 @@ class ComputerPlayer(object):
         return False
 
     def check_for_immediate_win(self, board, possible_moves):
+        """ checks for immediate win
+        """
         return_value = self.test_possible_moves(board, possible_moves, self.name, 3)
         if not return_value:
             return_value = self.test_possible_moves(board, possible_moves, self.opponent, 3)
@@ -64,9 +71,6 @@ class ComputerPlayer(object):
     def move_mini(self, board, possible_moves):
         """ Penne, a little too al dente.
         """
-        # what are the steps to get this to work?
-        # 1. make a copy of the board. 2. move to the desired place. 3. check if you've reached a terminal state on board.
-        # 4. if you have reached terminal call an evaluation function. 5. else keep recursing down 6. return a move
         def flip(player):
             return self.opponent if player == self.name else self.name
 
@@ -91,58 +95,11 @@ class ComputerPlayer(object):
         """ Cold, uncooked spaghetti. Please ignore
         """
         # evaluate the current board position based on a set of heuristics, return a value
-        #pdb.set_trace()
-        winner = board.check_for_win()
-        cell = board.get_cell(move)
-        multiplier = 1
-        if cell.value == self.opponent:
-            multiplier = -1
-        utility = 0
-        if winner:
-            utility += 100
-        if move:
-            
-            for direction in board.combination_directions:
-                # what do I want to do here? I would like to check if each move sets up a possible win
-                # I want to count up the possible wins and apply some sort of weight to that value
-                # I also want to take into account the possibility of doubling up. First thing is first.
-                # Let's figure out how to count the possible wins
-                # To count the possible wins, first count the number in a row. Then, check the endpoints for empty cells
-                # Check both endpoints. A potential win in one direction weighs less than one in both directions
-                checkers_in_a_row = (board.count_chains_by_cell_val(cell, direction[0]) +
-                                     board.count_chains_by_cell_val(cell, direction[1]))
-                board_data = board.get_move_values(cell)
-                pos_wins = 0
-                threes = 0
-                twos = 0
-                wide_opens = 0
-                closed_ends = 0
-                half_open = 0
-                total_possibilities = 0
-                for key, v in board_data.items():
-                    if v['pos_win']:
-                        pos_wins += 1
-                    if v['chain_length'] >= 2:
-                        threes += 1
-                    elif v['chain_length'] > 0:
-                        twos += 1
-                    if v['right_openings'] > 0 and v['left_openings'] > 0:
-                        wide_opens += 1
-                    elif v['right_openings'] == 0 and v['left_openings'] == 0:
-                        closed_ends += 1
-                    else:
-                        half_open += 1
-                    total_possibilities += v['right_openings'] + v['left_openings'] + 5 * v['chain_length']
-
-                utility += (pos_wins * 5 + threes * 2.5 + twos * 2 + total_possibilities * 3 + 
-                           wide_opens * 2 + closed_ends * 0.5 + half_open)
-                #utility += pos_wins
-                utility += cell.center_weight * 100
-
-            #print utility * multiplier
-            return utility * multiplier
+        pass
 
     def move_easy(self, board, possible_moves):
+        """ finds a move 
+        """
         evaluating_moves = []
         new_board = copy.deepcopy(board)
         comp_move_utilities = self.return_naive_utility(
@@ -164,6 +121,8 @@ class ComputerPlayer(object):
         return max_value[0]
 
     def return_naive_utility(self, board, possible_moves, player):
+        """ returns a list of moves and utility
+        """
         output_list = []
         for move in possible_moves:
             move_utility = 0
