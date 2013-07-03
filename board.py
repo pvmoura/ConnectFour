@@ -177,6 +177,8 @@ class Easy_Board(Board):
             return chain, holes, openings
 
     def get_empties(self, cell, direction):
+        """ Finds number of empty cells in a given direction from a given cell
+        """
         if cell:
             empties = self.count_chains_by_val(cell, direction, '_')
             if cell.is_empty():
@@ -187,24 +189,20 @@ class Easy_Board(Board):
     def get_move_values(self, cell):
         # pdb.set_trace()
         data = {}
-        possible_wins = 0
-        right_openings = 0
-        #self.combination_directions = [('w', 'e')]
         for comb_direction in self.combination_directions:
             data[comb_direction] = {
-                'pos_win': False
+                'pos_win': False,
+                'both_sides_open': False
             }
             #left = self.check_for_holes(cell, comb_direction[0])
             left_values = self.get_chain_holes_openings(cell, comb_direction[0])
             right_values = self.get_chain_holes_openings(cell, comb_direction[1])
-            data[comb_direction]['left_holes'] = left_values[1]
-            data[comb_direction]['right_holes'] = right_values[1]
-            data[comb_direction]['left_openings'] = left_values[2]
-            data[comb_direction]['right_openings'] = right_values[2]
-            data[comb_direction]['chain_length'] = left_values[0] + right_values[0]
-            total_possible_chain = sum(left_values) + sum(right_values)
-            if total_possible_chain >= 3:
-                possible_wins += 1
+            if left_values[2] > 0 and right_values[2] > 0:
+                data[comb_direction]['both_sides_open'] = True
+            data[comb_direction]['total_chain'] = left_values[0] + right_values[0]
+            data[comb_direction]['total_holes'] = left_values[1] + right_values[1]
+            data[comb_direction]['total_openings'] = left_values[2] + right_values[2]
+            if sum(left_values) + sum(right_values) >= 3:
                 data[comb_direction]['pos_win'] = True
         return data
 

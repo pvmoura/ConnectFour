@@ -24,8 +24,8 @@ class HumanPlayer(object):
                 return move
 
 class ComputerPlayer(object):
-    def __init__(self, turn=False, current_board=None, opponent_name='P'):
-        self.name = 'C'
+    def __init__(self, turn=False, name='C',  opponent_name='P', current_board=None):
+        self.name = name
         self.turn = turn
         self.current_board = current_board
         self.opponent = opponent_name
@@ -39,7 +39,7 @@ class ComputerPlayer(object):
             return move
         return possible_moves[random.randint(0, len(possible_moves) - 1)][1] + 1
 
-    def move(self, board):
+    def move_mini(self, board):
         # what are the steps to get this to work?
         # 1. make a copy of the board. 2. move to the desired place. 3. check if you've reached a terminal state on board.
         # 4. if you have reached terminal call an evaluation function. 5. else keep recursing down 6. return a move
@@ -66,6 +66,58 @@ class ComputerPlayer(object):
             return pos_end
         return minimax_recurse(board, self.name, 0)[1]
 
+    def move(self, board):
+        return self.move_easy(board)
+
+    def move_easy(self, board):
+        possible_moves = board.list_possible_moves()
+        pos_end = self.check_for_immediate_win(board, possible_moves)
+        if pos_end:
+            return pos_end
+        evaluating_moves = []
+        new_board = copy.deepcopy(board)
+        for move in possible_moves:
+            cell = new_board.get_cell(move)
+            new_board.set_cell(move, self.name)
+            player_data_dict = new_board.get_move_values(cell)
+            player_utility = 0
+            for key, val in player_data_dict.items():
+                openings_multiplier = 1.5
+                if val['both_sides_open']:
+                    openings_multiplier = 2
+                chain_multiplier = 3
+                if val['total_holes'] > 0:
+                    chain_multiplier = 2.5
+                if val['total_chain'] == 2 and val['both_sides_open']:
+                    player_utility += 10
+                player_utility +=  val['total_openings'] * openings_multiplier + \
+                            val['total_chain'] * chain_multiplier
+            evaluating_moves.append((move, player_utility))
+            new_board.set_cell(move, self.opponent, True)
+            opponent_data_dict = new_board.get_move_values(cell)
+            comp_utility = 0
+            for key, val in opponent_data_dict.items():
+                openings_multiplier = 1.5
+                if val['both_sides_open']:
+                    openings_multiplier = 2
+                chain_multiplier = 3
+                if val['total_holes'] > 0:
+                    chain_multiplier = 2.5
+                if val['total_chain'] == 2 and val['both_sides_open']:
+                    comp_utility += 10
+                comp_utility +=  val['total_openings'] * openings_multiplier + \
+                            val['total_chain'] * chain_multiplier
+            evaluating_moves.append((move, comp_utility))
+            new_board.set_cell(move, '_', True)
+        max_value = evaluating_moves.pop(evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
+        new_board.set_cell(max_value[0], 'P')
+        while (self.check_for_immediate_win(new_board, new_board.list_possible_moves())):
+            print max_value[0]
+            print evaluating_moves
+            new_board.set_cell(max_value[0], '_')
+            max_value = evaluating_moves.pop(evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
+            new_board.set_cell(max_value[0], 'P')
+        return max_value[0]
 
     def evaluate_board_utility(self, board, move):
         # evaluate the current board position based on a set of heuristics, return a value
