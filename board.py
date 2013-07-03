@@ -221,10 +221,6 @@ class Hard_Board(Board):
                             (cell.get_address(), new_cell.get_address())
                         )
 
-    def count_threes(self, player):
-        for coord in self.possible_fours:
-            if coord[0] 
-
     def count_one_adjacent(self, cell, direction):
         return self.count_chains_by_cell_val(cell, direction, 1) == 1
 
