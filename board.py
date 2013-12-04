@@ -3,18 +3,31 @@
 import pdb
 
 class Board(object):
-    def __init__(self, columns=7, column_size=6):
+    def __init__(self, columns=7, rows=6):
         self.columns = columns
-        self.column_size = column_size
+        self.rows = rows
         self.initialize_board()
         self.direction_tuples = {
             "n": (1, 0),
             "e": (0, 1),
             "s": (-1, 0),
-            "w": (0, -1)
+            "w": (0, -1),
+            "nw": (1, -1),
+            "ne": (1, 1),
+            "se": (-1, 1),
+            "sw": (-1, -1)
         }
         self.combination_directions = [('nw','se'), ('sw', 'ne'), ('w', 'e')]
         self.directions = ['n', 'e', 's', 'w', 'ne', 'se', 'nw', 'sw']
+        self.possible_fours = []
+        for cell in self:
+            if cell.row <= rows - 4:
+                for direction in self.directions:
+                    new_cell = self.get_cell_by_change(cell, direction, 4)
+                    if new_cell:
+                        self.possible_fours.append(
+                            (cell.get_address(), new_cell.get_address())
+                        )
 
 
     def __iter__(self, ):
@@ -27,18 +40,31 @@ class Board(object):
     def __str__(self, ):
         """ Pretty print the board
         """
-        return ("\n" +
-                " ".join([str(i) for i in range(1, self.columns + 1)]) + 
-                "\n" +
-                '\n'.join(' '.join(map(str, row)) for row in reversed(self.board)) + 
+        def colorize(char):
+            """ Colorize letters
+            """
+            char = str(char)
+            if char == '_':
+                char = '\033[30m' + char + '\033[0m'
+            elif char == 'X':
+                char = '\033[1;35m' + char + '\033[0m'
+            elif char == 'O':
+                char = '\033[1;34m' + char + '\033[0m'
+            return char
+
+        return ("\n" + '\033[92m' +
+                " ".join([str(i) for i in range(1, self.columns + 1)]) +
+                "\033[0m\n" +
+                "\n".join(' '.join(map(colorize, row))
+                    for row in reversed(self.board)) +
                 "\n")
 
     def initialize_board(self, place_holder='_'):
         """ Initializes list of cell lists for board representation
         """
-        self.board = [[ Cell('_', i, j, self.columns - 1, self.column_size - 1)
+        self.board = [[ Cell('_', i, j, self.columns - 1, self.rows - 1)
                 for j in range(self.columns)]
-                for i in range(self.column_size)]
+                for i in range(self.rows)]
 
     def get_cell(self, position_tuple):
         """ Get a cell object from board based on a position tuple
@@ -52,8 +78,7 @@ class Board(object):
         """ Get a cell object from the board going in a specific direction
             and a certain number of cells away
         """
-        if type(direction) is str:
-            direction = self.translate_direction_to_list(direction)
+        direction = self.direction_tuples[direction]
         if multiplier > 1:
             direction = [elem * multiplier for elem in direction]
         row_change = cell.row + direction[0]
@@ -62,14 +87,14 @@ class Board(object):
             return None
         return self.get_cell((row_change, col_change))
 
-    def set_cell(self, position_tuple, player_name, overwrite=False):
+    def set_cell(self, position_tuple, value, overwrite=False):
         """ Set a cell value with player_name at position_tuple
             Only writes to empty cells, unless overwrite=True
         """
         try:
             cell = self.board[position_tuple[0]][position_tuple[1]]
             if cell.is_empty() or overwrite:
-                cell.value = player_name
+                cell.set_val(value)
         except IndexError:
             return False
 
@@ -82,9 +107,10 @@ class Board(object):
         """
         return self.count_chains_by_cell_val(cell, direction, 3) == 3
 
-    def check_for_win(self, ):
+    def game_over(self, ):
         """ Calls search_for_win in all possible win directions
         """
+        result = 'tie'
         for cell in self:
             if not cell.is_empty():
                 if (self.search_for_win(cell, "e") or
@@ -92,25 +118,15 @@ class Board(object):
                     self.search_for_win(cell, "ne") or
                     self.search_for_win(cell, "se")):
                     return True
-        return False
-
-    def translate_direction_to_list(self, direction):
-        """ Takes a direction string and translates it into a list based on
-            self.direction_tuples
-        """
-        tuple_list = [self.direction_tuples[direction] for direction in list(direction)]
-        direction = [0, 0]
-        for tup in tuple_list:
-            direction[0] += tup[0]
-            direction[1] += tup[1]
-        return direction
+            else:
+                result = False
+        return result
 
     def translate_direction_to_opposite(self, direction):
         """ Takes a direction string and translates to opposite values
             based on self.direction_tuples
         """
-        dir_list = self.translate_direction_to_list(direction)
-        return [elem * -1 for elem in dir_list]
+        return [elem * -1 for elem in self.direction_tuples[direction]]
 
     def check_adjacent_cell_value(self, cell, direction, check_for_nonempty=False):
         """ Checks if adjacent cell value is the same as a given cell's
@@ -129,11 +145,12 @@ class Board(object):
         return new_cell and check_val == new_cell.value
 
     def count_chains_by_cell_val(self, cell, direction, max_count=4,
-                                        check_val=None, check_for_nonempty=False):
+                                 check_val=None, check_for_nonempty=False):
         """ Counts chains of checkers in a specific direction
         """
         counter = 0
-        while (self.check_adjacent_cell_value(cell, direction, check_for_nonempty)
+        while (self.check_adjacent_cell_value(cell, direction,
+                                              check_for_nonempty)
                and counter <= max_count):
             cell = self.get_cell_by_change(cell, direction)
             counter += 1
@@ -151,9 +168,8 @@ class Board(object):
                 (self.get_cell_by_change(cell, "s", 1) is None or
                  self.check_adjacent_cell_value(cell, "s", True) is True)]
 
-class Easy_Board(Board):
-
-    def get_chain_holes_openings(self, cell, direction, holes=0, chain=0, openings=0):
+    def get_chain_holes_openings(self, cell, direction, holes=0, chain=0,
+                                 openings=0):
         """ Take a cell and direction and output the number of holes, the length
             of the chain and the number of openings at the end of the chain
         """
@@ -207,20 +223,6 @@ class Easy_Board(Board):
                 data[comb_direction]['pos_win'] = True
         return data
 
-class Hard_Board(Board):
-
-    def __init__(self, columns=7, column_size=6):
-        super(Hard_Board, self).__init__(columns, column_size)
-        self.possible_fours = []
-        for cell in self:
-            if cell.row <= column_size - 4:
-                for direction in self.directions:
-                    new_cell = self.get_cell_by_change(cell, direction, 4)
-                    if new_cell:
-                        self.possible_fours.append(
-                            (cell.get_address(), new_cell.get_address())
-                        )
-
     def count_one_adjacent(self, cell, direction):
         return self.count_chains_by_cell_val(cell, direction, 1) == 1
 
@@ -244,6 +246,9 @@ class Cell(object):
                                                   col=self.col)
     def __str__(self, ):
         return self.value
+
+    def set_val(self, val):
+        self.value = val
 
     def get_address(self, ):
         return self.row, self.col
