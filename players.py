@@ -21,14 +21,22 @@ class HumanPlayer(object):
             move = raw_input(
                 self.name + "'s turn. Enter a column number to move: ")
             if self.check_valid_input(move, board):
+                try:
+                    move = int(move) - 1
+                    possible_moves = board.list_possible_moves()
+                    position = [elem for elem in possible_moves if elem[1] == move]
+                    move = position[0]
+                except ValueError:
+                    pass
                 return move
 
 class ComputerPlayer(object):
-    def __init__(self, turn=False, name='O',  opponent_name='X', current_board=None):
+    def __init__(self, turn=False, name='O',  opponent_name='X',
+                 current_board=None, level='hard'):
         self.name = name
         self.turn = turn
         self.opponent = opponent_name
-        self.level = 'easy'
+        self.level = level
     
     def move(self, board):
         """ Computer move
@@ -46,27 +54,23 @@ class ComputerPlayer(object):
         # add a move function for the computer
         return possible_moves[random.randint(0, len(possible_moves) - 1)][1] + 1
 
-    def test_possible_moves(self, board, possible_moves, player_name, check_value):
-        """ Test the possible moves for win states
+    def test_for_win(self, board, possible_moves, name):
+        """ Check if a possible move will end the game
         """
-        combination_directions = board.combination_directions + [('s', 'n')]
         for move in possible_moves:
-            cell = board.get_cell(move)
-            for direction in combination_directions:
-                board.set_cell(move, player_name)
-                if (board.count_chains_by_cell_val(cell, direction[0]) + 
-                    board.count_chains_by_cell_val(cell, direction[1])) == check_value:
-                    board.set_cell_to_empty(move)
-                    return move
+            board.set_cell(move, name)
+            if board.game_over() is True:
                 board.set_cell_to_empty(move)
+                return move
+            board.set_cell_to_empty(move)
         return False
 
     def check_for_immediate_win(self, board, possible_moves):
         """ checks for immediate win
         """
-        return_value = self.test_possible_moves(board, possible_moves, self.name, 3)
+        return_value = self.test_for_win(board, possible_moves, self.name)
         if not return_value:
-            return_value = self.test_possible_moves(board, possible_moves, self.opponent, 3)
+            return_value = self.test_for_win(board, possible_moves, self.opponent)
         return return_value
 
     def move_mini(self, board, possible_moves):
@@ -77,7 +81,7 @@ class ComputerPlayer(object):
 
         def minimax_recurse(board, player, level=0, move=None):
             #pdb.set_trace()
-            winner = board.check_for_win()
+            winner = board.game_over()
             moves = board.list_possible_moves()
             if moves == [] or winner is not False or level > 3:
                 return self.evaluate_board_utility(board, move), move
@@ -96,7 +100,7 @@ class ComputerPlayer(object):
         """ Cold, uncooked spaghetti. Please ignore
         """
         # evaluate the current board position based on a set of heuristics, return a value
-        pass
+        return 1
 
     def move_easy(self, board, possible_moves):
         """ finds a move 
@@ -111,8 +115,8 @@ class ComputerPlayer(object):
         max_value = evaluating_moves.pop(
             evaluating_moves.index(max(evaluating_moves, key=lambda tup: tup[1])))
         new_board.set_cell(max_value[0], self.name)
-        while self.test_possible_moves(
-            new_board, new_board.list_possible_moves(), self.opponent, 3) is not False:
+        while self.test_for_win(
+            new_board, new_board.list_possible_moves(), self.opponent) is not False:
             if len(evaluating_moves) == 0:
                 break
             new_board.set_cell_to_empty(max_value[0])
@@ -140,7 +144,7 @@ class ComputerPlayer(object):
                 if val['total_chain'] == 2 and val['both_sides_open']:
                     move_utility += 100
                 move_utility +=  val['total_openings'] * openings_multiplier + \
-                            val['total_chain'] * chain_multiplier + cell.center_weight
+                    val['total_chain'] * chain_multiplier + cell.center_weight
             output_list.append((move, move_utility))
             board.set_cell_to_empty(move)
         return output_list
