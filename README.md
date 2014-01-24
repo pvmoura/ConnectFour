@@ -1,4 +1,4 @@
 ConnectFour
 ===========
 
-Connect Four in python, with simple networking
+Connect Four in python, with AI
