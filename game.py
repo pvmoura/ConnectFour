@@ -6,7 +6,7 @@ from players import HumanPlayer, ComputerPlayer
 
 
 class ConnectFour(object):
-    def __init__(self, cell_list=None, columns=7, column_size=6, human=False, level='hard'):
+    def __init__(self, cell_list=None, columns=7, column_size=6, human=False, level='easy'):
         self.adversaries = [HumanPlayer(), HumanPlayer(False, 'O')]
         if not human:
             self.adversaries[1] = ComputerPlayer(level=level)
@@ -32,7 +32,7 @@ class ConnectFour(object):
         print self.board
         print "Cat's Game!" if over == 'tie' else \
               self.current_player.name + " won the game!"
-        
+
     def get_next_player(self, ):
         for player in self.adversaries:
             player.turn = not player.turn

@@ -18,17 +18,18 @@ class Board(object):
             "sw": (-1, -1)
         }
         self.combination_directions = [('nw','se'), ('sw', 'ne'), ('w', 'e')]
-        self.directions = ['n', 'e', 's', 'w', 'ne', 'se', 'nw', 'sw']
         self.possible_fours = []
         for cell in self:
-            if cell.row <= rows - 4:
-                for direction in self.directions:
-                    new_cell = self.get_cell_by_change(cell, direction, 4)
-                    if new_cell:
+            for direction in self.direction_tuples.iterkeys():
+                new_cell = self.get_cell_by_change(cell, direction, 4)
+                if new_cell:
+                    new_address = new_cell.get_address()
+                    cell_address = cell.get_address()
+                    if (new_address, cell_address) not in self.possible_fours \
+                    and (cell_address, new_address) not in self.possible_fours:
                         self.possible_fours.append(
                             (cell.get_address(), new_cell.get_address())
                         )
-
 
     def __iter__(self, ):
         """ Iterates through board list, yielding inner contents
@@ -231,7 +232,8 @@ class Board(object):
 
 
 class Cell(object):
-    def __init__(self, value, row_index, column_index, row_terminal=6, column_terminal=5):
+    def __init__(self, value, row_index, column_index,
+                 row_terminal=6, column_terminal=5):
         self.value = value
         self.row = row_index
         self.col = column_index
